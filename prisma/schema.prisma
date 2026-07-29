@@ -1,0 +1,101 @@
+// Cadence — see ARCHITECTURE.md §4.
+// Single-user by design: no userId columns anywhere.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Project {
+  id         String    @id @default(cuid())
+  name       String    @unique
+  color      String
+  isSystem   Boolean   @default(false)
+  archivedAt DateTime?
+  createdAt  DateTime  @default(now())
+
+  tasks   Task[]
+  entries TimeEntry[]
+
+  @@index([archivedAt])
+}
+
+enum TaskStatus {
+  OPEN
+  DONE
+}
+
+/// The backlog's top-level split. Coarser than a project: a project can hold
+/// tasks in both sections.
+enum TaskSection {
+  WORK
+  STUDY
+}
+
+model Task {
+  id          String      @id @default(cuid())
+  name        String
+  notes       String?
+  projectId   String
+  dueDate     DateTime?   @db.Date
+  status      TaskStatus  @default(OPEN)
+  section     TaskSection @default(WORK)
+  completedAt DateTime?
+  sortOrder   Int         @default(0)
+  createdAt   DateTime    @default(now())
+
+  project Project     @relation(fields: [projectId], references: [id])
+  entries TimeEntry[]
+
+  @@index([status, dueDate])
+  @@index([projectId])
+  @@index([section, status])
+}
+
+model TimeEntry {
+  id          String    @id @default(cuid())
+  description String    @default("")
+  projectId   String
+  taskId      String?
+  startedAt   DateTime  @db.Timestamptz(3)
+  endedAt     DateTime? @db.Timestamptz(3)
+  alertSentAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  project Project         @relation(fields: [projectId], references: [id])
+  task    Task?           @relation(fields: [taskId], references: [id], onDelete: SetNull)
+  tags    TagsOnEntries[]
+
+  @@index([startedAt])
+  @@index([projectId, startedAt])
+}
+
+model Tag {
+  id      String          @id @default(cuid())
+  name    String          @unique
+  entries TagsOnEntries[]
+}
+
+model TagsOnEntries {
+  entryId String
+  tagId   String
+
+  entry TimeEntry @relation(fields: [entryId], references: [id], onDelete: Cascade)
+  tag   Tag       @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([entryId, tagId])
+}
+
+model Settings {
+  id               Int       @id @default(1)
+  timezone         String    @default("Asia/Tokyo")
+  dailyGoalHours   Float     @default(8)
+  weeklyChartWeeks Int       @default(20)
+  alertAfterHours  Int       @default(12)
+  lastAlertCheckAt DateTime?
+}
