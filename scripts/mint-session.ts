@@ -1,6 +1,6 @@
 /**
  * Local dev only: mint an Auth.js session cookie so the app can be used without
- * a Google OAuth round-trip. Same technique as http-smoke.ts, which needs it to
+ * typing the login. Same technique as http-smoke.ts, which needs it to
  * exercise the authenticated paths.
  *
  *   npx tsx --env-file-if-exists=.env scripts/mint-session.ts

@@ -74,15 +74,15 @@ Copy [`.env.example`](./.env.example) and fill it in.
 |----------|-------------|----------|
 | `DATABASE_URL` | Postgres connection string, pooled | Yes |
 | `AUTH_SECRET` | Session signing secret, `openssl rand -base64 32` | Yes |
-| `AUTH_GOOGLE_ID` | Google OAuth client ID | Yes |
-| `AUTH_GOOGLE_SECRET` | Google OAuth client secret | Yes |
-| `ALLOWED_EMAIL` | Login allowlist and the runaway-timer alert recipient | Yes |
+| `AUTH_EMAIL` | The one email the login accepts | Yes |
+| `AUTH_PASSWORD` | The one password the login accepts | Yes |
+| `ALLOWED_EMAIL` | The runaway-timer alert recipient | For alerts |
 | `RESEND_API_KEY` | Resend API key for alert email delivery | For alerts |
 | `ALERT_FROM_EMAIL` | Verified Resend sender address | For alerts |
 | `CRON_SECRET` | Shared secret for `/api/alerts/check`, also set as a GitHub repo secret | For alerts |
 
 > [!IMPORTANT]
-> `ALLOWED_EMAIL` fails closed. If it is unset, nobody can sign in.
+> The login fails closed. If `AUTH_EMAIL` or `AUTH_PASSWORD` is unset, nobody can sign in.
 
 ## Configuration
 
@@ -108,7 +108,7 @@ settings page.
   codebase
 - [TypeScript](https://www.typescriptlang.org/) in strict mode
 - [Prisma 6](https://www.prisma.io/) over [Postgres 16](https://www.postgresql.org/)
-- [Auth.js](https://authjs.dev/) with Google, locked to one email
+- [Auth.js](https://authjs.dev/) with a Credentials provider, one email and password in env
 - [TanStack Query](https://tanstack.com/query) for server state
 - [Recharts](https://recharts.org/) for the dashboard charts
 - [Tailwind CSS v4](https://tailwindcss.com/) for styling
@@ -162,7 +162,7 @@ export DATABASE_URL=postgresql://postgres:cadence@localhost:55432/cadence
 npm run db:deploy && npm run db:seed
 npm run check:db        # 38 checks
 
-# The real HTTP surface, with a minted session cookie and no OAuth.
+# The real HTTP surface, with a minted session cookie and no login round-trip.
 npm run build && npm start &          # same DATABASE_URL and AUTH_SECRET
 SMOKE_BASE_URL=http://localhost:3000 npm run check:http   # 19 checks
 ```

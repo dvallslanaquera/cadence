@@ -38,7 +38,7 @@ From your answers:
 | Area | Decision |
 |---|---|
 | Topology | Next.js (UI + API) on Vercel, Postgres on Railway. No worker service |
-| Auth | Google OAuth via Auth.js, locked to your email |
+| Auth | Email + password via Auth.js Credentials, one account in env |
 | Hierarchy | Project → Task → TimeEntry, plus Tags. No Client/Workspace layer, no billable |
 | Backlog | Backlog items **are** Tasks; each has a Start button that opens a running entry linked to it |
 | Time zone | One fixed home zone in settings; grid always renders in it |
@@ -86,7 +86,7 @@ bits (which week is visible, which popover is open) are `useState` in the page c
 │    /backlog        task list                                 │
 │    /dashboard      charts                                    │
 │    /api/*          route handlers (zod → service → Prisma)   │
-│    /api/auth/*     Auth.js, Google provider                  │
+│    /api/auth/*     Auth.js, Credentials provider             │
 │    /api/alerts/check   runaway-timer check ──► Resend ──► 📧 │
 └───────────────────────────┬──────────────────────────────────┘
                             │ DATABASE_URL (pooled, TLS)
@@ -351,7 +351,7 @@ login page where JSON was expected.
 
 `/api/alerts/check` is the one exception: a cron request has no session, so it authenticates
 on a `x-cron-key` header compared against `CRON_SECRET` in constant time. It's the only
-route reachable without a Google login, it accepts no parameters, and the most a leaked key
+route reachable without a login, it accepts no parameters, and the most a leaked key
 buys an attacker is the ability to make your own inbox email you.
 
 ---
@@ -692,9 +692,9 @@ covered by neither, and worth exercising by hand after milestone 4.
 # Vercel
 DATABASE_URL=              # Railway Postgres, pooled connection string
 AUTH_SECRET=               # openssl rand -base64 32
-AUTH_GOOGLE_ID=
-AUTH_GOOGLE_SECRET=
-ALLOWED_EMAIL=dvallslanaquera@gmail.com    # login allowlist + alert recipient
+AUTH_EMAIL=                # the one login email
+AUTH_PASSWORD=             # the one login password
+ALLOWED_EMAIL=dvallslanaquera@gmail.com    # runaway-timer alert recipient
 NEXTAUTH_URL=              # production URL
 RESEND_API_KEY=
 CRON_SECRET=               # openssl rand -hex 32
@@ -704,21 +704,20 @@ APP_URL=                   # https://…vercel.app
 CRON_SECRET=               # the same value as above
 ```
 
-Auth.js `signIn` callback returns `false` for any email `!== ALLOWED_EMAIL`, and fails
-closed if that variable is unset, so a stranger who finds the login page gets a rejection
-rather than an account. Session strategy is JWT — no adapter, no user tables, nothing to
-store.
+The Credentials provider's `authorize` compares the submitted email (case-insensitive) and
+password against `AUTH_EMAIL` and `AUTH_PASSWORD`, and fails closed if either is unset, so
+a stranger who finds the login page gets a rejection rather than an account. The password is
+compared in constant time so a wrong guess leaks no timing signal. Session strategy is JWT
+— no adapter, no user tables, nothing to store.
 
 The config also sets `trustHost: true`. Auth.js only auto-trusts the request host on
 recognised platforms; without it, `next start` and local dev fail with `UntrustedHost` even
-with valid credentials, and the app would run on Vercel and nowhere else. The protection
-being waived — Host-header spoofing to forge a callback URL — is already covered by the
-one-address allowlist and the redirect URI pinned in the Google console.
+with valid credentials, and the app would run on Vercel and nowhere else.
 
-Setup order: Railway Postgres → `prisma migrate deploy` + seed → Google OAuth credentials
-(with the Vercel callback URL) → Vercel project with env vars → Resend account with your
-address verified → the two GitHub secrets, then trigger the workflow by hand once to prove
-the whole path works.
+Setup order: Railway Postgres → `prisma migrate deploy` + seed → Vercel project with env
+vars (set `AUTH_EMAIL` and `AUTH_PASSWORD` to the login you want) → Resend account with
+your address verified → the two GitHub secrets, then trigger the workflow by hand once to
+prove the whole path works.
 
 ---
 

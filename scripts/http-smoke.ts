@@ -1,6 +1,6 @@
 /**
  * End-to-end smoke test over real HTTP. Mints a valid Auth.js session cookie so
- * the authenticated paths can be exercised without a Google OAuth round-trip —
+ * the authenticated paths can be exercised without going through the login —
  * which is also the only way to prove the middleware, the 401 JSON contract and
  * the streamed CSV actually work together.
  *
