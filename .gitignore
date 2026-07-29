@@ -11,3 +11,7 @@ next-env.d.ts
 .DS_Store
 coverage/
 COMMIT_PLAN.md
+
+# Toggl exports are personal time history — keep them local.
+imports/*
+!imports/README.md

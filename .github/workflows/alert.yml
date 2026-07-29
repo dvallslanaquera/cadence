@@ -1,0 +1,34 @@
+name: Runaway timer check
+
+# The only scheduled component in the system (ARCHITECTURE.md §12).
+# GitHub delays scheduled runs under load, so the email lands roughly 12h00–12h20
+# after the timer started. That slack is irrelevant for a "you clearly forgot"
+# threshold, and nothing here writes a now-derived value into your data.
+#
+# NOTE: GitHub disables scheduled workflows in repositories with no commit
+# activity for 60 days. The app surfaces that itself — the check route stamps a
+# heartbeat and the UI shows a warning if it goes stale for more than 24 hours.
+# Use "Run workflow" below to re-arm or test it.
+on:
+  schedule:
+    - cron: "*/15 * * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: runaway-timer-check
+  cancel-in-progress: false
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Ping the alert endpoint
+        run: |
+          curl --silent --show-error --fail --max-time 30 \
+               -X POST "${APP_URL%/}/api/alerts/check" \
+               -H "x-cron-key: ${CRON_SECRET}" \
+               -H "Content-Type: application/json"
+        env:
+          APP_URL: ${{ secrets.APP_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}

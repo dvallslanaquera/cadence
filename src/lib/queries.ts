@@ -1,0 +1,706 @@
+"use client";
+
+import {
+  useMutation,
+  useQuery,
+  useQueryClient,
+  type QueryClient,
+} from "@tanstack/react-query";
+import { toast } from "sonner";
+import { roundToMinute } from "@/domain/time";
+import { api, ApiClientError } from "./api";
+import { RUNNING_POLL_MS } from "./constants";
+import type {
+  DailyStat,
+  Entry,
+  Project,
+  ProjectRef,
+  ProjectStat,
+  RunningState,
+  Settings,
+  SummaryStat,
+  Task,
+  TaskSection,
+  TaskStatus,
+  WeeklyStat,
+} from "./types";
+
+export const keys = {
+  entries: (from: string, to: string) => ["entries", from, to] as const,
+  running: ["entries", "running"] as const,
+  projects: ["projects"] as const,
+  frequentProjects: ["projects", "frequent"] as const,
+  tasks: (filter: string) => ["tasks", filter] as const,
+  tags: ["tags"] as const,
+  settings: ["settings"] as const,
+  statsDaily: (from: string, to: string) => ["stats", "daily", from, to] as const,
+  statsWeekly: (weeks: number) => ["stats", "weekly", weeks] as const,
+  statsProjects: (from: string, to: string) => ["stats", "projects", from, to] as const,
+};
+
+/** Anything that changes time data invalidates all three of these. */
+function invalidateTimeData(client: QueryClient) {
+  void client.invalidateQueries({ queryKey: ["entries"] });
+  void client.invalidateQueries({ queryKey: ["stats"] });
+  void client.invalidateQueries({ queryKey: ["tasks"] });
+}
+
+function reportError(error: unknown) {
+  if (error instanceof ApiClientError) {
+    if (error.status === 401) return; // already redirecting
+    toast.error(error.message);
+    return;
+  }
+  toast.error("Something went wrong");
+}
+
+// ---------------------------------------------------------------------------
+// Optimistic cache surgery
+//
+// Dragging a block or hitting start/stop has to land on screen at once. Every
+// timer mutation therefore writes the expected result into the cache in
+// `onMutate`, rolls it back in `onError`, and lets the refetch in `onSettled`
+// reconcile whatever the server actually decided — the minute rounding, the
+// one-minute minimum, the clip against the next entry. The optimistic value is
+// a good guess, never the source of truth. See ARCHITECTURE.md §13.
+// ---------------------------------------------------------------------------
+
+interface EntriesPayload {
+  entries: Entry[];
+}
+
+/**
+ * Every cached week, but not the running query. Both live under "entries";
+ * a week key is ["entries", from, to] and the running key is ["entries",
+ * "running"], so the length tells them apart.
+ */
+const ENTRY_LISTS = {
+  queryKey: ["entries"],
+  predicate: (query: { queryKey: readonly unknown[] }) => query.queryKey.length === 3,
+} as const;
+
+type CacheSnapshot = [readonly unknown[], unknown][];
+
+/** Freeze in-flight refetches so they cannot land on top of the optimistic write. */
+async function beginOptimistic(client: QueryClient, root: string): Promise<CacheSnapshot> {
+  await client.cancelQueries({ queryKey: [root] });
+  return client.getQueriesData({ queryKey: [root] });
+}
+
+function rollback(client: QueryClient, snapshot: CacheSnapshot | undefined) {
+  for (const [key, data] of snapshot ?? []) client.setQueryData(key, data);
+}
+
+/** Rewrite each cached week. `range` is that week's [from, to). */
+function updateEntryLists(
+  client: QueryClient,
+  update: (entries: Entry[], range: { from: Date; to: Date }) => Entry[],
+) {
+  for (const [key, data] of client.getQueriesData<EntriesPayload>(ENTRY_LISTS)) {
+    if (!data) continue;
+    const [, from, to] = key as [string, string, string];
+    client.setQueryData<EntriesPayload>(key, {
+      entries: update(data.entries, { from: new Date(from), to: new Date(to) }),
+    });
+  }
+}
+
+function patchEntry(client: QueryClient, id: string, patch: (entry: Entry) => Entry) {
+  updateEntryLists(client, (entries) =>
+    entries.map((entry) => (entry.id === id ? patch(entry) : entry)),
+  );
+}
+
+/** The project a mutation names, from whatever the projects cache already holds. */
+function cachedProject(client: QueryClient, projectId?: string | null): ProjectRef | null {
+  const lists = client.getQueriesData<{ projects: Project[] }>({ queryKey: keys.projects });
+  const projects = lists.flatMap(([, data]) => data?.projects ?? []);
+  if (projectId) return projects.find((project) => project.id === projectId) ?? null;
+  return projects.find((project) => project.isSystem) ?? null;
+}
+
+const PLACEHOLDER_PROJECT: ProjectRef = { id: "", name: "…", color: "#94a3b8" };
+
+interface TasksPayload {
+  tasks: Task[];
+}
+
+/**
+ * Rewrite every cached task list, then re-apply the filter that produced it —
+ * the query string is the second half of the key. Completing a task while the
+ * "Open" tab is showing therefore removes it, and moving one to Study removes it
+ * from a Work-filtered list, instead of leaving a ghost row until the refetch.
+ */
+function updateTaskLists(client: QueryClient, update: (tasks: Task[]) => Task[]) {
+  for (const [key, data] of client.getQueriesData<TasksPayload>({ queryKey: ["tasks"] })) {
+    if (!data) continue;
+    const filter = new URLSearchParams(String(key[1] ?? ""));
+    const status = filter.get("status");
+    const section = filter.get("section");
+    const dueFrom = filter.get("dueFrom");
+    const dueTo = filter.get("dueTo");
+
+    client.setQueryData<TasksPayload>(key, {
+      tasks: update(data.tasks).filter(
+        (task) =>
+          (!status || task.status === status) &&
+          (!section || task.section === section) &&
+          // A due-date filter excludes undated tasks server-side too.
+          (!dueFrom || (task.dueDate !== null && task.dueDate >= dueFrom)) &&
+          (!dueTo || (task.dueDate !== null && task.dueDate <= dueTo)),
+      ),
+    });
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Reads
+// ---------------------------------------------------------------------------
+
+export function useSettings() {
+  return useQuery({
+    queryKey: keys.settings,
+    queryFn: () => api.get<{ settings: Settings }>("/api/settings"),
+    select: (data) => data.settings,
+    staleTime: 60_000,
+  });
+}
+
+export function useEntries(from: Date, to: Date) {
+  const fromIso = from.toISOString();
+  const toIso = to.toISOString();
+  return useQuery({
+    queryKey: keys.entries(fromIso, toIso),
+    queryFn: () =>
+      api.get<{ entries: Entry[] }>(
+        `/api/entries?from=${encodeURIComponent(fromIso)}&to=${encodeURIComponent(toIso)}`,
+      ),
+    select: (data) => data.entries,
+  });
+}
+
+/**
+ * Polls every 30s and refetches on focus, so the phone and the laptop agree
+ * within seconds without any offline machinery. See ARCHITECTURE.md §13.
+ */
+export function useRunning() {
+  return useQuery({
+    queryKey: keys.running,
+    queryFn: () => api.get<RunningState>("/api/entries/running"),
+    refetchInterval: RUNNING_POLL_MS,
+    refetchOnWindowFocus: true,
+    refetchIntervalInBackground: false,
+  });
+}
+
+export function useProjects(includeArchived = false) {
+  return useQuery({
+    queryKey: [...keys.projects, includeArchived],
+    queryFn: () =>
+      api.get<{ projects: Project[] }>(
+        `/api/projects${includeArchived ? "?archived=true" : ""}`,
+      ),
+    select: (data) => data.projects,
+    staleTime: 30_000,
+  });
+}
+
+/**
+ * Ids of the most-used projects, most-used first. Shares the "projects" key
+ * prefix so creating or deleting a project refreshes the shortlist too.
+ */
+export function useFrequentProjectIds() {
+  return useQuery({
+    queryKey: keys.frequentProjects,
+    queryFn: () => api.get<{ projectIds: string[] }>("/api/projects/frequent"),
+    select: (data) => data.projectIds,
+    staleTime: 60_000,
+  });
+}
+
+export function useTasks(
+  params: {
+    status?: TaskStatus;
+    section?: TaskSection;
+    dueFrom?: string;
+    dueTo?: string;
+  } = {},
+) {
+  const search = new URLSearchParams();
+  if (params.status) search.set("status", params.status);
+  if (params.section) search.set("section", params.section);
+  if (params.dueFrom) search.set("dueFrom", params.dueFrom);
+  if (params.dueTo) search.set("dueTo", params.dueTo);
+  const qs = search.toString();
+
+  return useQuery({
+    queryKey: keys.tasks(qs),
+    queryFn: () => api.get<{ tasks: Task[] }>(`/api/tasks${qs ? `?${qs}` : ""}`),
+    select: (data) => data.tasks,
+  });
+}
+
+export function useTags() {
+  return useQuery({
+    queryKey: keys.tags,
+    queryFn: () => api.get<{ tags: string[] }>("/api/tags"),
+    select: (data) => data.tags,
+    staleTime: 60_000,
+  });
+}
+
+export function useDailyStats(from: Date, to: Date) {
+  const fromIso = from.toISOString();
+  const toIso = to.toISOString();
+  return useQuery({
+    queryKey: keys.statsDaily(fromIso, toIso),
+    queryFn: () =>
+      api.get<{ days: DailyStat[]; summary: SummaryStat; dailyGoalHours: number }>(
+        `/api/stats/daily?from=${encodeURIComponent(fromIso)}&to=${encodeURIComponent(toIso)}`,
+      ),
+  });
+}
+
+export function useWeeklyStats(weeks: number) {
+  return useQuery({
+    queryKey: keys.statsWeekly(weeks),
+    queryFn: () =>
+      api.get<{ weeks: WeeklyStat[]; dailyGoalHours: number }>(
+        `/api/stats/weekly?weeks=${weeks}`,
+      ),
+  });
+}
+
+export function useProjectStats(from: Date, to: Date) {
+  const fromIso = from.toISOString();
+  const toIso = to.toISOString();
+  return useQuery({
+    queryKey: keys.statsProjects(fromIso, toIso),
+    queryFn: () =>
+      api.get<{ projects: ProjectStat[] }>(
+        `/api/stats/projects?from=${encodeURIComponent(fromIso)}&to=${encodeURIComponent(toIso)}`,
+      ),
+    select: (data) => data.projects,
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Timer
+// ---------------------------------------------------------------------------
+
+export interface StartTimerInput {
+  description?: string;
+  projectId?: string | null;
+  taskId?: string | null;
+  tags?: string[];
+}
+
+export function useStartTimer() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (input: StartTimerInput) =>
+      api.post<{ entry: Entry }>("/api/timer/start", input),
+
+    onMutate: async (input) => {
+      const snapshot = await beginOptimistic(client, "entries");
+      const startedAt = roundToMinute(new Date());
+
+      const optimistic: Entry = {
+        // Replaced by the server's row on the next refetch; distinct enough
+        // that it can never be mistaken for a real cuid.
+        id: `optimistic-${startedAt.getTime()}`,
+        description: input.description ?? "",
+        startedAt: startedAt.toISOString(),
+        endedAt: null,
+        alertSentAt: null,
+        project: cachedProject(client, input.projectId) ?? PLACEHOLDER_PROJECT,
+        task: null,
+        tags: input.tags ?? [],
+      };
+
+      // Starting a timer stops whatever was running, exactly abutting it.
+      const previous = client.getQueryData<RunningState>(keys.running)?.entry ?? null;
+      if (previous) {
+        patchEntry(client, previous.id, (entry) => ({
+          ...entry,
+          endedAt: startedAt.toISOString(),
+        }));
+      }
+
+      updateEntryLists(client, (entries, range) =>
+        startedAt < range.to ? [...entries, optimistic] : entries,
+      );
+      client.setQueryData<RunningState>(keys.running, (state) =>
+        state ? { ...state, entry: optimistic } : state,
+      );
+
+      return { snapshot };
+    },
+
+    onError: (error, _input, context) => {
+      rollback(client, context?.snapshot);
+      reportError(error);
+    },
+    onSettled: () => invalidateTimeData(client),
+  });
+}
+
+export function useStopTimer() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: () => api.post<{ entry: Entry }>("/api/timer/stop"),
+
+    onMutate: async () => {
+      const snapshot = await beginOptimistic(client, "entries");
+      const running = client.getQueryData<RunningState>(keys.running)?.entry ?? null;
+
+      if (running) {
+        // The server enforces a one-minute minimum and may clip the end against
+        // a later entry; the refetch corrects both.
+        const endedAt = roundToMinute(new Date()).toISOString();
+        patchEntry(client, running.id, (entry) => ({ ...entry, endedAt }));
+      }
+      client.setQueryData<RunningState>(keys.running, (state) =>
+        state ? { ...state, entry: null } : state,
+      );
+
+      return { snapshot };
+    },
+
+    onError: (error, _input, context) => {
+      rollback(client, context?.snapshot);
+      reportError(error);
+    },
+    onSettled: () => invalidateTimeData(client),
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Entries
+// ---------------------------------------------------------------------------
+
+export interface CreateEntryInput {
+  description?: string;
+  projectId?: string | null;
+  taskId?: string | null;
+  startedAt: string;
+  endedAt: string;
+  tags?: string[];
+}
+
+export function useCreateEntry() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (input: CreateEntryInput) =>
+      api.post<{ entry: Entry }>("/api/entries", input),
+
+    onMutate: async (input) => {
+      const snapshot = await beginOptimistic(client, "entries");
+      const startedAt = new Date(input.startedAt);
+
+      const optimistic: Entry = {
+        id: `optimistic-${startedAt.getTime()}`,
+        description: input.description ?? "",
+        startedAt: input.startedAt,
+        endedAt: input.endedAt,
+        alertSentAt: null,
+        project: cachedProject(client, input.projectId) ?? PLACEHOLDER_PROJECT,
+        task: null,
+        tags: input.tags ?? [],
+      };
+
+      updateEntryLists(client, (entries, range) =>
+        startedAt >= range.from && startedAt < range.to ? [...entries, optimistic] : entries,
+      );
+
+      return { snapshot };
+    },
+
+    onError: (error, _input, context) => {
+      rollback(client, context?.snapshot);
+      reportError(error);
+    },
+    onSettled: () => invalidateTimeData(client),
+  });
+}
+
+export interface UpdateEntryInput {
+  description?: string;
+  projectId?: string | null;
+  taskId?: string | null;
+  startedAt?: string;
+  endedAt?: string;
+  tags?: string[];
+}
+
+/**
+ * Optimistic, because this is the drag handler: a block that snaps back to its
+ * old position until the PATCH returns reads as lag no matter how quick the
+ * server is. A rejected edit — an overlap, most often — rolls the block back
+ * and the toast says why.
+ */
+export function useUpdateEntry() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, ...input }: UpdateEntryInput & { id: string }) =>
+      api.patch<{ entry: Entry }>(`/api/entries/${id}`, input),
+
+    onMutate: async ({ id, ...input }) => {
+      const snapshot = await beginOptimistic(client, "entries");
+
+      patchEntry(client, id, (entry) => ({
+        ...entry,
+        description: input.description ?? entry.description,
+        startedAt: input.startedAt ?? entry.startedAt,
+        endedAt: input.endedAt !== undefined ? input.endedAt : entry.endedAt,
+        tags: input.tags ?? entry.tags,
+        project:
+          input.projectId !== undefined
+            ? (cachedProject(client, input.projectId) ?? entry.project)
+            : entry.project,
+      }));
+
+      // A running entry being edited is also the one the header bar shows.
+      client.setQueryData<RunningState>(keys.running, (state) =>
+        state?.entry?.id === id
+          ? {
+              ...state,
+              entry: {
+                ...state.entry,
+                description: input.description ?? state.entry.description,
+                startedAt: input.startedAt ?? state.entry.startedAt,
+              },
+            }
+          : state,
+      );
+
+      return { snapshot };
+    },
+
+    onError: (error, _input, context) => {
+      rollback(client, context?.snapshot);
+      reportError(error);
+    },
+    onSettled: () => invalidateTimeData(client),
+  });
+}
+
+/**
+ * Delete is optimistic with an undo toast rather than a confirm dialog — a
+ * mis-click costs one click to reverse, and a confirm on every delete gets
+ * clicked through blindly within a week. See ARCHITECTURE.md §17.
+ */
+export function useDeleteEntry() {
+  const client = useQueryClient();
+  const recreate = useCreateEntry();
+
+  return useMutation({
+    mutationFn: (entry: Entry) => api.delete<{ ok: true }>(`/api/entries/${entry.id}`),
+    onSuccess: (_result, entry) => {
+      invalidateTimeData(client);
+      if (!entry.endedAt) return; // a running entry can't be recreated verbatim
+      toast("Entry deleted", {
+        action: {
+          label: "Undo",
+          onClick: () => {
+            recreate.mutate({
+              description: entry.description,
+              projectId: entry.project.id,
+              taskId: entry.task?.id ?? null,
+              startedAt: entry.startedAt,
+              endedAt: entry.endedAt as string,
+              tags: entry.tags,
+            });
+          },
+        },
+      });
+    },
+    onError: reportError,
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Projects
+// ---------------------------------------------------------------------------
+
+export function useCreateProject() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (input: { name: string; color: string }) =>
+      api.post<{ project: Project }>("/api/projects", input),
+    onSuccess: () => client.invalidateQueries({ queryKey: keys.projects }),
+    onError: reportError,
+  });
+}
+
+export function useUpdateProject() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      id,
+      ...input
+    }: {
+      id: string;
+      name?: string;
+      color?: string;
+      archived?: boolean;
+    }) => api.patch<{ project: Project }>(`/api/projects/${id}`, input),
+    onSuccess: () => {
+      void client.invalidateQueries({ queryKey: keys.projects });
+      void client.invalidateQueries({ queryKey: ["entries"] });
+    },
+    onError: reportError,
+  });
+}
+
+export function useDeleteProject() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) =>
+      api.delete<{ moved: { entries: number; tasks: number } }>(
+        `/api/projects/${id}?confirm=true`,
+      ),
+    onSuccess: (result) => {
+      invalidateTimeData(client);
+      void client.invalidateQueries({ queryKey: keys.projects });
+      const { entries, tasks } = result.moved;
+      if (entries || tasks) {
+        toast.success(`Moved ${entries} entries and ${tasks} tasks to Others`);
+      }
+    },
+    onError: reportError,
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Tasks
+// ---------------------------------------------------------------------------
+
+export function useCreateTask() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (input: {
+      name: string;
+      projectId?: string | null;
+      section?: TaskSection;
+      dueDate?: string | null;
+      notes?: string | null;
+    }) => api.post<{ task: Task }>("/api/tasks", input),
+
+    onMutate: async (input) => {
+      const snapshot = await beginOptimistic(client, "tasks");
+
+      const optimistic: Task = {
+        id: `optimistic-${Date.now()}`,
+        name: input.name,
+        notes: input.notes ?? null,
+        status: "OPEN",
+        section: input.section ?? "WORK",
+        dueDate: input.dueDate ?? null,
+        completedAt: null,
+        // New tasks go to the top of the backlog; lists sort by sortOrder.
+        sortOrder: Number.MIN_SAFE_INTEGER,
+        project: cachedProject(client, input.projectId) ?? PLACEHOLDER_PROJECT,
+        loggedMinutes: 0,
+      };
+
+      updateTaskLists(client, (tasks) => [optimistic, ...tasks]);
+      return { snapshot };
+    },
+
+    onError: (error, _input, context) => {
+      rollback(client, context?.snapshot);
+      reportError(error);
+    },
+    onSettled: () => client.invalidateQueries({ queryKey: ["tasks"] }),
+  });
+}
+
+export function useUpdateTask() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      id,
+      ...input
+    }: {
+      id: string;
+      name?: string;
+      notes?: string | null;
+      projectId?: string | null;
+      section?: TaskSection;
+      dueDate?: string | null;
+      status?: TaskStatus;
+    }) => api.patch<{ task: Task }>(`/api/tasks/${id}`, input),
+
+    onMutate: async ({ id, ...input }) => {
+      const snapshot = await beginOptimistic(client, "tasks");
+
+      updateTaskLists(client, (tasks) =>
+        tasks.map((task) =>
+          task.id === id
+            ? {
+                ...task,
+                name: input.name ?? task.name,
+                notes: input.notes !== undefined ? input.notes : task.notes,
+                status: input.status ?? task.status,
+                section: input.section ?? task.section,
+                dueDate: input.dueDate !== undefined ? input.dueDate : task.dueDate,
+                project:
+                  input.projectId !== undefined
+                    ? (cachedProject(client, input.projectId) ?? task.project)
+                    : task.project,
+              }
+            : task,
+        ),
+      );
+
+      return { snapshot };
+    },
+
+    onError: (error, _input, context) => {
+      rollback(client, context?.snapshot);
+      reportError(error);
+    },
+    onSettled: () => client.invalidateQueries({ queryKey: ["tasks"] }),
+  });
+}
+
+export function useDeleteTask() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => api.delete<{ ok: true }>(`/api/tasks/${id}`),
+
+    onMutate: async (id) => {
+      const snapshot = await beginOptimistic(client, "tasks");
+      updateTaskLists(client, (tasks) => tasks.filter((task) => task.id !== id));
+      return { snapshot };
+    },
+
+    onError: (error, _id, context) => {
+      rollback(client, context?.snapshot);
+      reportError(error);
+    },
+    onSettled: () => {
+      void client.invalidateQueries({ queryKey: ["tasks"] });
+      // Entries survive a deleted task but lose the link, so their labels change.
+      void client.invalidateQueries({ queryKey: ["entries"] });
+    },
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Settings
+// ---------------------------------------------------------------------------
+
+export function useUpdateSettings() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (input: Partial<Omit<Settings, "lastAlertCheckAt">>) =>
+      api.patch<{ settings: Settings }>("/api/settings", input),
+    onSuccess: () => {
+      void client.invalidateQueries();
+      toast.success("Settings saved");
+    },
+    onError: reportError,
+  });
+}
