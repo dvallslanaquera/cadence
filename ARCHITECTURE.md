@@ -147,6 +147,7 @@ model Task {                    // ← this IS the backlog
   projectId   String              // never null; defaults to the Others project
   dueDate     DateTime? @db.Date  // a calendar date, not an instant
   status      TaskStatus @default(OPEN)
+  section     TaskSection @default(WORK)  // the backlog's top-level split
   completedAt DateTime?
   sortOrder   Int                 // manual ordering within the backlog
   createdAt   DateTime  @default(now())
@@ -156,9 +157,11 @@ model Task {                    // ← this IS the backlog
 
   @@index([status, dueDate])
   @@index([projectId])
+  @@index([section, status])
 }
 
 enum TaskStatus { OPEN DONE }
+enum TaskSection { WORK STUDY }
 
 model TimeEntry {
   id           String    @id @default(cuid())
@@ -464,10 +467,17 @@ and hovering one highlights the others.
 
 ## 9. Backlog tab
 
-A list of `Task` rows, grouped by project, with an "open / done / all" filter and drag
-reordering. Each row: checkbox, name, project chip, optional due date, total time logged
-against it, and a ▶ Start button that opens a running entry linked to that task with the
-description pre-filled from the task name.
+A list of `Task` rows split into two sections — **work-related** and **study** — and grouped
+by project within each. Each row: checkbox, name, project chip, optional due date, total time
+logged against it, a ⇄ button that moves it to the other section, and a ▶ Start button that
+opens a running entry linked to that task with the description pre-filled from the task name.
+
+**Why the section is on the task and not on the project.** The project is the reporting
+dimension — it is what colours a block and what the dashboard donut slices by. Making the
+split a property of the project would have collapsed that to two slices, and would have
+stopped a project holding both a work task and a study task. The section is a second, coarser
+axis over the same projects. Both sections always render, empty or not, so it is clear where
+a new task will land; a section with nothing in it says so rather than vanishing.
 
 Completing a task sets `status = DONE` and `completedAt`; done tasks collapse into a
 "Completed" section rather than disappearing, so the dashboard can still attribute their
