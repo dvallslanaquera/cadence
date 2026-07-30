@@ -211,6 +211,28 @@ export function minutesToHours(minutes: number): number {
   return Math.round((minutes / 60) * 100) / 100;
 }
 
+/**
+ * What a half-typed time field should show, so the colon never has to be typed.
+ * "0930" becomes "09:30", and "930" becomes "9:30", because 93 is not an hour,
+ * so the first digit was the whole of it. A colon you typed yourself is left where you
+ * put it, which is what keeps "9:" from collapsing back to "9" mid-entry.
+ */
+export function maskClockInput(raw: string): string {
+  const colon = raw.indexOf(":");
+  if (colon >= 0) {
+    const hours = raw.slice(0, colon).replace(/\D/g, "").slice(0, 2);
+    const minutes = raw.slice(colon + 1).replace(/\D/g, "").slice(0, 2);
+    return `${hours}:${minutes}`;
+  }
+
+  const digits = raw.replace(/\D/g, "").slice(0, 4);
+  if (digits.length <= 2) return digits;
+  if (digits.length === 3 && Number(digits.slice(0, 2)) > 23) {
+    return `${digits.slice(0, 1)}:${digits.slice(1)}`;
+  }
+  return `${digits.slice(0, 2)}:${digits.slice(2)}`;
+}
+
 /** Parse "09:30" into 570. Returns null on anything malformed. */
 export function parseClockToMinutes(value: string): number | null {
   const match = /^(\d{1,2}):(\d{2})$/.exec(value.trim());

@@ -150,6 +150,52 @@ export function blockFromClick(
   return { startMinutes: atMinutes, endMinutes };
 }
 
+export type ClickIntent =
+  | { kind: "start"; startMinutes: number }
+  | { kind: "block"; startMinutes: number; endMinutes: number };
+
+/**
+ * What a plain click on empty grid means.
+ *
+ * Usually it means "I am doing this now", so it starts a live timer at the minute
+ * you clicked and the entry runs until you stop it. That is the whole reason to
+ * click the grid rather than fill in a form. Three things have to hold for that
+ * reading to be true, and when any of them fails the click falls back to logging
+ * a fixed block instead:
+ *
+ *   - the column is today, because you cannot currently be doing something on
+ *     Tuesday last week;
+ *   - the minute is at or before now, for the same reason in the other
+ *     direction, since clicking ahead of the now-line is planning rather than
+ *     tracking;
+ *   - nothing is logged later that day, since a timer with no end would run
+ *     straight through it.
+ *
+ * `nowMinutes` is null for any column that is not today. Returns null when the
+ * click leaves no room for anything at all.
+ */
+export function intentFromClick(
+  atMinutes: number,
+  occupied: readonly { startMinutes: number; endMinutes: number }[],
+  options: {
+    nowMinutes: number | null;
+    defaultMinutes: number;
+    dayLengthMinutes: number;
+  },
+): ClickIntent | null {
+  const { nowMinutes, defaultMinutes, dayLengthMinutes } = options;
+
+  const block = blockFromClick(atMinutes, occupied, defaultMinutes, dayLengthMinutes);
+  if (!block) return null;
+
+  const nothingAfter = occupied.every((slot) => slot.endMinutes <= atMinutes);
+  if (nowMinutes !== null && atMinutes <= nowMinutes && nothingAfter) {
+    return { kind: "start", startMinutes: atMinutes };
+  }
+
+  return { kind: "block", ...block };
+}
+
 // ---------------------------------------------------------------------------
 // Lane packing
 // ---------------------------------------------------------------------------

@@ -9,6 +9,7 @@ import {
   isoWeekNumber,
   isoWeekYear,
   localDayLengthMinutes,
+  maskClockInput,
   minutesFromLocalMidnight,
   parseClockToMinutes,
   roundToMinute,
@@ -156,7 +157,57 @@ describe("formatting", () => {
     expect(parseClockToMinutes("09:60")).toBeNull();
     expect(parseClockToMinutes("hello")).toBeNull();
   });
+});
 
+describe("maskClockInput", () => {
+  it("puts the colon in for you", () => {
+    expect(maskClockInput("0930")).toBe("09:30");
+    expect(maskClockInput("093")).toBe("09:3");
+    expect(maskClockInput("1")).toBe("1");
+    expect(maskClockInput("14")).toBe("14");
+  });
+
+  it("reads a three-digit time as h:mm when hh would be past 23", () => {
+    expect(maskClockInput("930")).toBe("9:30");
+    expect(maskClockInput("245")).toBe("2:45");
+    // 09 and 23 are real hours, so the first two digits stay the hour.
+    expect(maskClockInput("091")).toBe("09:1");
+    expect(maskClockInput("235")).toBe("23:5");
+  });
+
+  it("leaves a colon you typed where you put it", () => {
+    expect(maskClockInput("9:")).toBe("9:");
+    expect(maskClockInput("9:3")).toBe("9:3");
+    expect(maskClockInput("9:30")).toBe("9:30");
+    expect(maskClockInput("09:30")).toBe("09:30");
+  });
+
+  it("drops everything that is not a digit", () => {
+    expect(maskClockInput("9am")).toBe("9");
+    expect(maskClockInput("09.30")).toBe("09:30");
+    expect(maskClockInput("")).toBe("");
+  });
+
+  it("stops at four digits", () => {
+    expect(maskClockInput("093012")).toBe("09:30");
+    expect(maskClockInput("09:3012")).toBe("09:30");
+  });
+
+  it("shortens cleanly as you backspace through it", () => {
+    expect(maskClockInput("09:3")).toBe("09:3");
+    expect(maskClockInput("09:")).toBe("09:");
+    expect(maskClockInput("09")).toBe("09");
+    expect(maskClockInput("0")).toBe("0");
+  });
+
+  it("hands parseClockToMinutes something it can read", () => {
+    for (const typed of ["0930", "930", "9:30"]) {
+      expect(parseClockToMinutes(maskClockInput(typed))).toBe(570);
+    }
+  });
+});
+
+describe("date and range labels", () => {
   it("formats a date as Mmm-D, unpadded", () => {
     expect(formatDayLabel(new Date("2026-07-01T10:00:00Z"), TZ)).toBe("Jul-1");
     expect(formatDayLabel(new Date("2026-08-12T10:00:00Z"), TZ)).toBe("Aug-12");

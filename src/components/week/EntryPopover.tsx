@@ -21,7 +21,9 @@ import {
   wallClockMinutes,
 } from "@/domain/time";
 import { Button, ColorDot, Field, IconButton, Input, Select } from "@/components/ui/primitives";
+import { DescriptionInput } from "@/components/ui/DescriptionInput";
 import { ProjectPicker } from "@/components/ui/ProjectPicker";
+import { TimeInput } from "@/components/ui/TimeInput";
 import { ClockRangePicker, type ClockHandle } from "@/components/ui/ClockRangePicker";
 import { seriesColor } from "@/lib/constants";
 import { useMediaQuery } from "@/lib/hooks";
@@ -43,7 +45,19 @@ function wrapEndOffset(startMinutes: number, endMinutes: number): number {
  * drag-to-create, and editing an existing entry all land here, so the create
  * and edit paths cannot drift apart. See ARCHITECTURE.md §8.
  */
-export function EntryPopover({ entry, onClose }: { entry: Entry; onClose: () => void }) {
+export function EntryPopover({
+  entry,
+  onClose,
+  onSuggestionsOpenChange,
+}: {
+  entry: Entry;
+  onClose: () => void;
+  /**
+   * Passed through from the description field. The popover shell needs to know a
+   * dropdown is up so Escape dismisses that first. See EntryBlock.
+   */
+  onSuggestionsOpenChange?: (open: boolean) => void;
+}) {
   const { data: settings } = useSettings();
   const { data: projects } = useProjects();
   const { data: tasks } = useTasks({ status: "OPEN" });
@@ -104,14 +118,19 @@ export function EntryPopover({ entry, onClose }: { entry: Entry; onClose: () => 
   // Parsed views of the two time fields. Null while a field is cleared or
   // half-typed; the dial holds the entry's own time rather than snapping to
   // midnight, so clearing the input doesn't yank a handle across the face.
+  //
+  // A running entry has no end *yet*, which is the same field in a different
+  // state rather than a different mode: leave it empty and the timer keeps
+  // running, type a time and the entry stops there. The dial follows too: a
+  // dashed stub while the end is unset, a real arc with a draggable handle once
+  // it is.
   const parsedStart = parseClockToMinutes(startTime);
-  const parsedEnd = running ? null : parseClockToMinutes(endTime);
+  const parsedEnd = parseClockToMinutes(endTime);
   const dialStart = parsedStart ?? wallClockMinutes(new Date(entry.startedAt), tz);
-  const dialEnd = running
-    ? null
-    : (parsedEnd ?? wallClockMinutes(new Date(entry.endedAt as string), tz));
+  const dialEnd =
+    parsedEnd ?? (entry.endedAt ? wallClockMinutes(new Date(entry.endedAt), tz) : null);
   const spanMinutes =
-    running || parsedStart === null || parsedEnd === null
+    parsedStart === null || parsedEnd === null
       ? undefined
       : endDayOffset * MINUTES_PER_DAY + parsedEnd - parsedStart;
 
@@ -157,9 +176,13 @@ export function EntryPopover({ entry, onClose }: { entry: Entry; onClose: () => 
       startedAt: instantFromLocalParts(startDate, startMinutes, tz).toISOString(),
     };
 
-    if (!running) {
-      const endMinutes = parseClockToMinutes(endTime);
-      if (endMinutes === null) return;
+    const endMinutes = parseClockToMinutes(endTime);
+    // Half-typed: refuse rather than guess, the same as a bad start time. An
+    // empty field is not half-typed. It means the entry has no end, so a
+    // running one keeps running and a finished one keeps the end it already has.
+    if (endMinutes === null && endTime.trim() !== "") return;
+
+    if (endMinutes !== null) {
       // Offset 0 with an end at or before the start would be a zero or negative
       // entry; that reading always belongs to the next day.
       const offset =
@@ -182,15 +205,14 @@ export function EntryPopover({ entry, onClose }: { entry: Entry; onClose: () => 
   return (
     <div className="space-y-2.5">
       <div className="flex items-start gap-2">
-        <Input
+        <DescriptionInput
           autoFocus
           value={description}
           placeholder="What are you working on?"
-          onChange={(event) => setDescription(event.target.value)}
-          onKeyDown={(event) => {
-            if (event.key === "Enter") save();
-            if (event.key === "Escape") onClose();
-          }}
+          onChange={setDescription}
+          onSubmit={save}
+          onCancel={onClose}
+          onOpenChange={onSuggestionsOpenChange}
         />
         <IconButton
           label="Delete entry"
@@ -241,41 +263,46 @@ export function EntryPopover({ entry, onClose }: { entry: Entry; onClose: () => 
 
       <div className="grid grid-cols-2 gap-2">
         <Field label="Start">
-          <Input
-            type="time"
+          <TimeInput
             value={startTime}
-            onChange={(event) => onStartTimeInput(event.target.value)}
+            fallback={formatClock(new Date(entry.startedAt), tz)}
+            onChange={onStartTimeInput}
           />
         </Field>
 
-        <Field label={running ? "End (running)" : "End"}>
-          {running ? (
-            <Button
-              variant="secondary"
-              className="w-full"
-              onClick={() => stop.mutate(undefined, { onSuccess: onClose })}
-              disabled={stop.isPending}
-            >
-              <Square className="h-3.5 w-3.5 fill-current" />
-              Stop now
-            </Button>
-          ) : (
-            <div className="relative">
-              <Input
-                type="time"
-                value={endTime}
-                onChange={(event) => onEndTimeInput(event.target.value)}
-              />
-              {/* The dial cannot show which day the end landed on, so say it. */}
-              {endDayOffset > 0 ? (
-                <span className="pointer-events-none absolute right-8 top-1/2 -translate-y-1/2 rounded bg-accent-soft px-1 py-0.5 text-[10px] font-medium text-accent">
-                  +{endDayOffset}d
-                </span>
-              ) : null}
-            </div>
-          )}
+        <Field label="End">
+          <div className="relative">
+            <TimeInput
+              value={endTime}
+              // Empty means no end: a running entry left alone keeps running.
+              fallback={entry.endedAt ? formatClock(new Date(entry.endedAt), tz) : ""}
+              placeholder={running ? "running" : "17:00"}
+              onChange={onEndTimeInput}
+            />
+            {/* The dial cannot show which day the end landed on, so say it. */}
+            {endDayOffset > 0 ? (
+              <span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 rounded bg-accent-soft px-1 py-0.5 text-[10px] font-medium text-accent">
+                +{endDayOffset}d
+              </span>
+            ) : null}
+          </div>
         </Field>
       </div>
+
+      {/* One click for the common case. Typing an end time does the same thing at
+          a minute of your choosing, which is what the field above is for. */}
+      {running ? (
+        <Button
+          size="sm"
+          variant="secondary"
+          className="w-full"
+          onClick={() => stop.mutate(undefined, { onSuccess: onClose })}
+          disabled={stop.isPending}
+        >
+          <Square className="h-3.5 w-3.5 fill-current" />
+          Stop now
+        </Button>
+      ) : null}
 
       <Field label="Tags">
         <Input

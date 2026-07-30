@@ -32,6 +32,9 @@ export const keys = {
   frequentProjects: ["projects", "frequent"] as const,
   tasks: (filter: string) => ["tasks", filter] as const,
   tags: ["tags"] as const,
+  // Deliberately not under "entries": every drag invalidates that whole root,
+  // and refetching the autocomplete history mid-drag buys nothing.
+  descriptions: ["descriptions"] as const,
   settings: ["settings"] as const,
   statsDaily: (from: string, to: string) => ["stats", "daily", from, to] as const,
   statsWeekly: (weeks: number) => ["stats", "weekly", weeks] as const,
@@ -249,6 +252,20 @@ export function useTags() {
   });
 }
 
+/**
+ * Past entry descriptions for the editor's autocomplete, most-used first. One
+ * fetch feeds every keystroke; a minute of staleness only delays a description
+ * you invented a minute ago from joining the list.
+ */
+export function useDescriptionHistory() {
+  return useQuery({
+    queryKey: keys.descriptions,
+    queryFn: () => api.get<{ descriptions: string[] }>("/api/entries/descriptions"),
+    select: (data) => data.descriptions,
+    staleTime: 60_000,
+  });
+}
+
 export function useDailyStats(from: Date, to: Date) {
   const fromIso = from.toISOString();
   const toIso = to.toISOString();
@@ -293,6 +310,8 @@ export interface StartTimerInput {
   projectId?: string | null;
   taskId?: string | null;
   tags?: string[];
+  /** A minute that has already passed, from a click on the grid. Defaults to now. */
+  startedAt?: string;
 }
 
 export function useStartTimer() {
@@ -303,7 +322,7 @@ export function useStartTimer() {
 
     onMutate: async (input) => {
       const snapshot = await beginOptimistic(client, "entries");
-      const startedAt = roundToMinute(new Date());
+      const startedAt = roundToMinute(input.startedAt ? new Date(input.startedAt) : new Date());
 
       const optimistic: Entry = {
         // Replaced by the server's row on the next refetch; distinct enough

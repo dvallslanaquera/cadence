@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   assignLanes,
   blockFromClick,
+  intentFromClick,
   minutesOnDay,
   pixelsToMinutes,
   splitAcrossDays,
@@ -194,6 +195,84 @@ describe("blockFromClick", () => {
         expect(block.startMinutes < slot.endMinutes && slot.startMinutes < block.endMinutes).toBe(
           false,
         );
+      }
+    }
+  });
+});
+
+describe("intentFromClick", () => {
+  const DAY = 1440;
+  // 14:00. Anything at or before this on today's column is happening now.
+  const NOW = 840;
+  const today = (nowMinutes: number | null = NOW) => ({
+    nowMinutes,
+    defaultMinutes: 30,
+    dayLengthMinutes: DAY,
+  });
+
+  it("starts a timer at the clicked minute on an empty today", () => {
+    expect(intentFromClick(540, [], today())).toEqual({ kind: "start", startMinutes: 540 });
+  });
+
+  it("starts at the minute clicked, not at now", () => {
+    // You clicked 09:00 because that is when you started, six hours after which
+    // is not the same entry.
+    expect(intentFromClick(540, [], today())).toEqual({ kind: "start", startMinutes: 540 });
+    expect(intentFromClick(NOW, [], today())).toEqual({ kind: "start", startMinutes: NOW });
+  });
+
+  it("logs a fixed block on a day that is not today", () => {
+    expect(intentFromClick(540, [], today(null))).toEqual({
+      kind: "block",
+      startMinutes: 540,
+      endMinutes: 570,
+    });
+  });
+
+  it("logs a fixed block ahead of the now-line, which is planning", () => {
+    expect(intentFromClick(NOW + 5, [], today())).toEqual({
+      kind: "block",
+      startMinutes: NOW + 5,
+      endMinutes: NOW + 35,
+    });
+  });
+
+  it("logs a fixed block when something is already logged later that day", () => {
+    // A timer with no end would run straight through the 16:00 block.
+    const occupied = [{ startMinutes: 960, endMinutes: 1020 }];
+    expect(intentFromClick(540, occupied, today())).toEqual({
+      kind: "block",
+      startMinutes: 540,
+      endMinutes: 570,
+    });
+  });
+
+  it("starts a timer at the exact end of the running block", () => {
+    // The running entry is drawn as ending now, so clicking its bottom edge is
+    // "I have moved on to the next thing".
+    const occupied = [{ startMinutes: 600, endMinutes: NOW }];
+    expect(intentFromClick(NOW, occupied, today())).toEqual({
+      kind: "start",
+      startMinutes: NOW,
+    });
+  });
+
+  it("does nothing when the click lands inside an existing entry", () => {
+    const occupied = [{ startMinutes: 540, endMinutes: 600 }];
+    expect(intentFromClick(560, occupied, today())).toBeNull();
+    expect(intentFromClick(560, occupied, today(null))).toBeNull();
+  });
+
+  it("never asks to start a timer that would run through a later entry", () => {
+    const occupied = [
+      { startMinutes: 540, endMinutes: 600 },
+      { startMinutes: 615, endMinutes: 700 },
+    ];
+    for (let at = 0; at < DAY; at += 5) {
+      const intent = intentFromClick(at, occupied, today(DAY));
+      if (intent?.kind !== "start") continue;
+      for (const slot of occupied) {
+        expect(slot.startMinutes >= intent.startMinutes).toBe(false);
       }
     }
   });

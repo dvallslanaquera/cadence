@@ -45,7 +45,7 @@ From your answers:
 | Runaway timers | No autostop — nothing is ever truncated. A scheduled check emails you once when a running entry passes 12h |
 | Overlaps | Not allowed. Starting a timer stops the running one; conflicting manual entries rejected |
 | Sync | Installable PWA, online-only writes, running timer refetches on focus and every 30s |
-| Grid click | Click = start a live timer now; drag = completed entry over the dragged range |
+| Grid click | Click = start a live timer at that minute; drag = completed entry over the dragged range |
 | CSV | Toggl Detailed-report columns, date-range picker defaulting to the visible week |
 | Deletes | Projects archive by default; a real delete reassigns its entries and tasks to Others |
 | Dashboard | Configurable daily goal, drawn as a reference line on the day and week charts |
@@ -428,9 +428,16 @@ underneath, both in the one calendar format the UI uses (`Jul-27 – Aug-2`).
 
 **Interactions.**
 
-- **Click empty space** → rounds `now` to the minute, starts a live timer, opens
-  `EntryPopover` anchored at the click with name and project fields focused. The block
-  appears immediately (optimistic), then reconciles with the server response.
+- **Click empty space** → starts a live timer at the minute you clicked and opens
+  `EntryPopover` anchored at the click with the description focused. The block appears
+  immediately (optimistic), then reconciles with the server response. It keeps running,
+  and shows in the timer strip, until you stop it or type an end time.
+
+  Three things have to hold for a click to mean "I am doing this now": the column is
+  today, the minute is at or before now, and nothing is logged later that day, since a
+  timer with no end would run straight through it. When any of them fails the click logs a
+  `DEFAULT_BLOCK_MINUTES` block instead, clipped to whatever comes next. The rule is
+  `intentFromClick` in `domain/layout.ts`, tested there rather than in the component.
 - **Drag empty space** → a ghost block follows the pointer, snapping to 5-minute
   increments (hold `Alt` for 1-minute precision). On release it creates a *completed*
   entry over that exact range and opens the same popover.
@@ -438,6 +445,27 @@ underneath, both in the one calendar format the UI uses (`Jul-27 – Aug-2`).
   tags, start/end time inputs, and the trash icon in its corner. Delete is optimistic with
   an undo toast rather than a confirm dialog — a mis-click costs one click to reverse, and
   a confirm dialog on every delete gets clicked through blindly within a week.
+
+**Two fields in the popover earn their own machinery.**
+
+The **description** completes against what you have logged before, most-used first
+(`/api/entries/descriptions` → `domain/suggest.ts`). The whole history is a few hundred
+short strings, so it is fetched once and matched in the browser; a request per keystroke
+would put the dropdown behind the keyboard. The list opens on typing rather than on focus,
+because opening the editor on an existing entry should show you the entry and not a menu
+over the dial. Radix listens for `Escape` on the document in the capture phase, so
+`EntryBlock` suppresses its own dismissal while the list is up. Otherwise the first
+`Escape` throws away the edit instead of closing the dropdown.
+
+The **start and end** are text boxes, not `input type="time"`. The native control is
+segmented, draws an arrow cursor, and takes more than one click to put the caret anywhere
+useful. `TimeInput` inserts the colon for you (`0930` and `930` both reach 09:30, via
+`maskClockInput`), keeps arrow-key nudging, and reverts anything unparseable on blur.
+`9:3` was as likely 9:03 as 9:30, and guessing edits your data. It stays silent when there
+is nothing to fix, because any reported change re-derives which day the end falls on, and
+doing that for a field you only clicked into would quietly take a day off a multi-day
+entry. An **empty end** means the entry has no end: a running one keeps running and shows
+in the timer strip, and typing a time there is how you stop it at a minute of your choice.
 - **Drag an entry's edges** → resize; **drag its body** → move. Both snap to 5 minutes and
   both are rejected on overlap with the conflicting entry flashed.
 

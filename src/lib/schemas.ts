@@ -31,6 +31,11 @@ export const timerStartSchema = z.object({
   projectId: z.string().min(1).nullable().optional(),
   taskId: z.string().min(1).nullable().optional(),
   tags: z.array(z.string().trim().min(1).max(50)).max(20).default([]),
+  /**
+   * When the work began, for a click on the grid at a minute that has already
+   * passed. Omitted by the play button and the backlog, which mean "now".
+   */
+  startedAt: isoDateTime.optional(),
 });
 
 export const projectCreateSchema = z.object({

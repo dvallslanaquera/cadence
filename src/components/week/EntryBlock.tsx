@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
+import { useCallback, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 import * as Popover from "@radix-ui/react-popover";
 import { ArrowDown, ArrowUp } from "lucide-react";
 import { FINE_SNAP_MINUTES } from "@/lib/constants";
@@ -55,6 +55,18 @@ export function EntryBlock({
   // Rendered from local state during a drag, so the block tracks the pointer at
   // frame rate instead of jumping once the PATCH comes back.
   const [preview, setPreview] = useState<DragPreview | null>(null);
+
+  /**
+   * Whether the editor's description dropdown is showing. Radix listens for
+   * Escape on the document in the capture phase, which runs before the field's
+   * own handler, so the flag has to be readable from out here for the first
+   * Escape to dismiss the list instead of the whole editor. A ref, not state:
+   * nothing on screen depends on it.
+   */
+  const suggestionsOpen = useRef(false);
+  const setSuggestionsOpen = useCallback((open: boolean) => {
+    suggestionsOpen.current = open;
+  }, []);
 
   const { entry, running } = segment;
 
@@ -256,8 +268,15 @@ export function EntryBlock({
           collisionPadding={12}
           className="z-50 w-[min(340px,calc(100vw-24px))] rounded-xl border border-border bg-surface p-3 shadow-[var(--shadow)]"
           onOpenAutoFocus={(event) => event.preventDefault()}
+          onEscapeKeyDown={(event) => {
+            if (suggestionsOpen.current) event.preventDefault();
+          }}
         >
-          <EntryPopover entry={entry} onClose={() => onSelect(null)} />
+          <EntryPopover
+            entry={entry}
+            onClose={() => onSelect(null)}
+            onSuggestionsOpenChange={setSuggestionsOpen}
+          />
           <Popover.Arrow className="fill-[var(--border)]" />
         </Popover.Content>
       </Popover.Portal>

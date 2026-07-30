@@ -125,6 +125,27 @@ export async function listEntries(from: Date, to: Date): Promise<EntryDto[]> {
   return rows.map(toEntryDto);
 }
 
+/**
+ * Every description you have used before, most-used first, for the editor's
+ * autocomplete. Ranked by use count rather than alphabetically: the point is to
+ * retype "Interview preparation" in two keystrokes, and the block you log every
+ * week should be the one waiting at the top. Ties go to the most recent.
+ *
+ * The whole list goes to the browser and is filtered there, a few hundred short
+ * strings against a request per keystroke. See ARCHITECTURE.md §8.
+ */
+export async function descriptionHistory(limit: number): Promise<string[]> {
+  const rows = await db.timeEntry.groupBy({
+    by: ["description"],
+    where: { description: { not: "" } },
+    _count: { description: true },
+    _max: { startedAt: true },
+    orderBy: [{ _count: { description: "desc" } }, { _max: { startedAt: "desc" } }],
+    take: limit,
+  });
+  return rows.map((row) => row.description);
+}
+
 export async function getRunningEntry(): Promise<EntryDto | null> {
   const row = await db.timeEntry.findFirst({
     where: { endedAt: null },
@@ -219,18 +240,36 @@ export async function deleteEntry(id: string): Promise<void> {
  * less than a minute old we give it its one-minute minimum and start the new
  * entry there, rather than writing a zero-length row the check constraint
  * would reject.
+ *
+ * `input.startedAt` moves the start back to a minute that has already passed,
+ * a click on the grid at 09:00 when it is 09:40. It cannot reach into the future
+ * (nothing is "currently" happening later) and it cannot reach back past the
+ * timer already running, because stopping that one at an instant before it began
+ * is not a state the database will hold.
  */
 export async function startTimer(
   input: z.infer<typeof timerStartSchema>,
+  timezone = "UTC",
 ): Promise<EntryDto> {
   const row = await db.$transaction(async (tx) => {
     const now = roundToMinute(new Date());
+    const requested = input.startedAt ? roundToMinute(input.startedAt) : now;
+    if (requested > now) {
+      throw new ApiError(400, "A timer cannot start in the future");
+    }
+
     const running = await tx.timeEntry.findFirst({ where: { endedAt: null } });
 
-    let startedAt = now;
+    let startedAt = requested;
     if (running) {
+      if (requested <= running.startedAt) {
+        throw new ApiError(
+          409,
+          `A timer has been running since ${formatClock(running.startedAt, timezone)}. Stop it before logging anything earlier`,
+        );
+      }
       const minimumEnd = addMinutes(running.startedAt, 1);
-      const end = now > minimumEnd ? now : minimumEnd;
+      const end = requested > minimumEnd ? requested : minimumEnd;
       await tx.timeEntry.update({ where: { id: running.id }, data: { endedAt: end } });
       startedAt = end;
     }

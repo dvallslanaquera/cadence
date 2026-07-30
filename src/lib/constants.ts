@@ -29,8 +29,10 @@ export const SNAP_MINUTES = 5;
 export const FINE_SNAP_MINUTES = 1;
 
 /**
- * A plain click on empty grid logs a block of this length starting where you
- * clicked. Drag instead when you want a different length.
+ * How long a click-created block is when the click cannot mean "I am doing this
+ * now", which is an earlier day or a minute ahead of the now-line. On today a
+ * click starts a live timer instead and there is no length to assume. See
+ * `intentFromClick`.
  */
 export const DEFAULT_BLOCK_MINUTES = 30;
 
@@ -41,6 +43,15 @@ export const DEFAULT_BLOCK_MINUTES = 30;
  */
 export const FREQUENT_PROJECT_COUNT = 5;
 export const FREQUENT_PROJECT_WINDOW_DAYS = 30;
+
+/**
+ * The description autocomplete. The history is fetched whole and matched in the
+ * browser, so the limit is what keeps that payload small on a tracker with years
+ * of entries in it; six visible rows is about as far down as anyone reads before
+ * finishing the word themselves.
+ */
+export const DESCRIPTION_HISTORY_LIMIT = 300;
+export const DESCRIPTION_SUGGESTION_COUNT = 6;
 
 /** The running timer refetches on focus and on this interval. */
 export const RUNNING_POLL_MS = 30_000;

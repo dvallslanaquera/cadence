@@ -31,6 +31,7 @@ import {
   isWeekKey,
   shiftWeeks,
   startOfLocalWeek,
+  wallClockMinutes,
   weekDays,
   weekKey as toWeekKey,
   weekStartFromKey,
@@ -200,6 +201,18 @@ export function WeekView() {
       task
         ? { description: task.name, projectId: task.project.id, taskId: task.id }
         : {},
+      { onSuccess: (result) => setSelectedEntryId(result.entry.id) },
+    );
+  }
+
+  /**
+   * Click on empty grid: you are doing this now, so start a live timer at the
+   * minute you clicked and leave it running. It lands in the strip at the top of
+   * every page, and stays there until you stop it or type an end time.
+   */
+  function startTimerAt(dayKeyValue: string, startMinutes: number) {
+    startTimer.mutate(
+      { startedAt: instantFromLocalParts(dayKeyValue, startMinutes, tz).toISOString() },
       { onSuccess: (result) => setSelectedEntryId(result.entry.id) },
     );
   }
@@ -425,6 +438,8 @@ export function WeekView() {
                   selectedEntryId={selectedEntryId}
                   onSelectEntry={setSelectedEntryId}
                   onCreateRange={createRange}
+                  onStartTimerAt={startTimerAt}
+                  nowMinutes={isToday ? wallClockMinutes(now, tz) : null}
                   onMoveEntry={moveEntry}
                   onResizeEntry={resizeEntry}
                   pxPerMinute={pxPerMinute}
@@ -438,8 +453,9 @@ export function WeekView() {
       </div>
 
       <p className="mt-2 text-center text-[11px] text-fg-subtle">
-        Click to log a {DEFAULT_BLOCK_MINUTES}-minute block · drag for a different length · hold
-        Alt while dragging for minute precision
+        Click to start the timer there · drag for an exact range · a click on an earlier day
+        logs a {DEFAULT_BLOCK_MINUTES}-minute block · hold Alt while dragging for minute
+        precision
       </p>
     </div>
   );

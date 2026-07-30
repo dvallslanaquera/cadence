@@ -2,7 +2,7 @@
 
 import { useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 import { DEFAULT_BLOCK_MINUTES, FINE_SNAP_MINUTES, SNAP_MINUTES } from "@/lib/constants";
-import { blockFromClick, pixelsToMinutes } from "@/domain/layout";
+import { intentFromClick, pixelsToMinutes } from "@/domain/layout";
 import { formatDurationHuman, formatMinutesAsClock } from "@/domain/time";
 import { cn } from "@/lib/utils";
 import { EntryBlock } from "./EntryBlock";
@@ -16,11 +16,16 @@ export interface DayColumnProps {
   isToday: boolean;
   selectedEntryId: string | null;
   onSelectEntry: (id: string | null) => void;
-  /**
-   * A click or drag on empty space becomes a completed entry over that range.
-   * A plain click uses the default block length; a drag uses what was dragged.
-   */
+  /** A drag on empty space becomes a completed entry over exactly that range. */
   onCreateRange: (dayKey: string, startMinutes: number, endMinutes: number) => void;
+  /**
+   * A click on empty space that means "I am doing this now": start a live timer
+   * at that minute and leave it running. See `intentFromClick` for when a click
+   * means this rather than a fixed block.
+   */
+  onStartTimerAt: (dayKey: string, startMinutes: number) => void;
+  /** Wall-clock minutes of the current time, or null if this column is not today. */
+  nowMinutes: number | null;
   onMoveEntry: (segment: PositionedSegment, deltaMinutes: number) => void | Promise<unknown>;
   onResizeEntry: (
     segment: PositionedSegment,
@@ -39,6 +44,8 @@ export function DayColumn({
   selectedEntryId,
   onSelectEntry,
   onCreateRange,
+  onStartTimerAt,
+  nowMinutes,
   onMoveEntry,
   onResizeEntry,
   pxPerMinute,
@@ -92,19 +99,21 @@ export function DayColumn({
     if (!state) return;
     event.currentTarget.releasePointerCapture(event.pointerId);
 
-    // A plain click logs a default-length block where the pointer landed,
-    // clipped to whatever comes next so it can never collide.
+    // A plain click starts the timer where the pointer landed, on the assumption
+    // that you are about to do the thing you just clicked. On a past day, or
+    // ahead of the now-line, it logs a default-length block instead, clipped to
+    // whatever comes next so it can never collide.
     if (!state.moved || !preview) {
-      const block = blockFromClick(
+      const intent = intentFromClick(
         state.anchorMinutes,
         segments.map((segment) => ({
           startMinutes: segment.topMinutes,
           endMinutes: segment.bottomMinutes,
         })),
-        DEFAULT_BLOCK_MINUTES,
-        GRID_MINUTES,
+        { nowMinutes, defaultMinutes: DEFAULT_BLOCK_MINUTES, dayLengthMinutes: GRID_MINUTES },
       );
-      if (block) onCreateRange(dayKey, block.startMinutes, block.endMinutes);
+      if (intent?.kind === "start") onStartTimerAt(dayKey, intent.startMinutes);
+      else if (intent) onCreateRange(dayKey, intent.startMinutes, intent.endMinutes);
       return;
     }
 
