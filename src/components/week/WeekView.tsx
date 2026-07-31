@@ -453,9 +453,9 @@ export function WeekView() {
       </div>
 
       <p className="mt-2 text-center text-[11px] text-fg-subtle">
-        Click to start the timer there · drag for an exact range · a click on an earlier day
-        logs a {DEFAULT_BLOCK_MINUTES}-minute block · hold Alt while dragging for minute
-        precision
+        Double-click to start the timer there · drag for an exact range · a double-click on an
+        earlier day logs a {DEFAULT_BLOCK_MINUTES}-minute block · hold Alt while dragging for
+        minute precision
       </p>
     </div>
   );

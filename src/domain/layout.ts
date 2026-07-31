@@ -118,7 +118,7 @@ export function pixelsToMinutes(
 }
 
 /**
- * The block a plain click should create: `defaultMinutes` long, starting where
+ * The block a double click should create: `defaultMinutes` long, starting where
  * the pointer landed.
  *
  * Clipped to whatever comes next, because the database rejects overlaps
@@ -155,7 +155,7 @@ export type ClickIntent =
   | { kind: "block"; startMinutes: number; endMinutes: number };
 
 /**
- * What a plain click on empty grid means.
+ * What a double click on empty grid means.
  *
  * Usually it means "I am doing this now", so it starts a live timer at the minute
  * you clicked and the entry runs until you stop it. That is the whole reason to

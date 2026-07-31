@@ -1,6 +1,11 @@
 "use client";
 
-import { useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
+import {
+  useRef,
+  useState,
+  type MouseEvent as ReactMouseEvent,
+  type PointerEvent as ReactPointerEvent,
+} from "react";
 import { DEFAULT_BLOCK_MINUTES, FINE_SNAP_MINUTES, SNAP_MINUTES } from "@/lib/constants";
 import { intentFromClick, pixelsToMinutes } from "@/domain/layout";
 import { formatDurationHuman, formatMinutesAsClock } from "@/domain/time";
@@ -19,9 +24,9 @@ export interface DayColumnProps {
   /** A drag on empty space becomes a completed entry over exactly that range. */
   onCreateRange: (dayKey: string, startMinutes: number, endMinutes: number) => void;
   /**
-   * A click on empty space that means "I am doing this now": start a live timer
-   * at that minute and leave it running. See `intentFromClick` for when a click
-   * means this rather than a fixed block.
+   * A double click on empty space that means "I am doing this now": start a live
+   * timer at that minute and leave it running. See `intentFromClick` for when a
+   * double click means this rather than a fixed block.
    */
   onStartTimerAt: (dayKey: string, startMinutes: number) => void;
   /** Wall-clock minutes of the current time, or null if this column is not today. */
@@ -99,28 +104,36 @@ export function DayColumn({
     if (!state) return;
     event.currentTarget.releasePointerCapture(event.pointerId);
 
-    // A plain click starts the timer where the pointer landed, on the assumption
-    // that you are about to do the thing you just clicked. On a past day, or
-    // ahead of the now-line, it logs a default-length block instead, clipped to
-    // whatever comes next so it can never collide.
-    if (!state.moved || !preview) {
-      const intent = intentFromClick(
-        state.anchorMinutes,
-        segments.map((segment) => ({
-          startMinutes: segment.topMinutes,
-          endMinutes: segment.bottomMinutes,
-        })),
-        { nowMinutes, defaultMinutes: DEFAULT_BLOCK_MINUTES, dayLengthMinutes: GRID_MINUTES },
-      );
-      if (intent?.kind === "start") onStartTimerAt(dayKey, intent.startMinutes);
-      else if (intent) onCreateRange(dayKey, intent.startMinutes, intent.endMinutes);
-      return;
-    }
+    // A single click creates nothing; see onDoubleClick. One was too easy to
+    // land while scrolling or reaching for a block, and each stray one left a
+    // timer running.
+    if (!state.moved || !preview) return;
 
     // A drag that collapsed to nothing still deserves the one-minute minimum.
     const from = preview.from;
     const to = preview.to > preview.from ? preview.to : preview.from + 1;
     onCreateRange(dayKey, from, to);
+  }
+
+  /**
+   * A double click starts the timer where the pointer landed, on the assumption
+   * that you are about to do the thing you just clicked. On a past day, or ahead
+   * of the now-line, it logs a default-length block instead, clipped to whatever
+   * comes next so it can never collide.
+   */
+  function onDoubleClick(event: ReactMouseEvent<HTMLDivElement>) {
+    if (event.target !== event.currentTarget) return;
+
+    const intent = intentFromClick(
+      minutesAt(event.clientY, event.altKey),
+      segments.map((segment) => ({
+        startMinutes: segment.topMinutes,
+        endMinutes: segment.bottomMinutes,
+      })),
+      { nowMinutes, defaultMinutes: DEFAULT_BLOCK_MINUTES, dayLengthMinutes: GRID_MINUTES },
+    );
+    if (intent?.kind === "start") onStartTimerAt(dayKey, intent.startMinutes);
+    else if (intent) onCreateRange(dayKey, intent.startMinutes, intent.endMinutes);
   }
 
   return (
@@ -129,6 +142,7 @@ export function DayColumn({
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}
+      onDoubleClick={onDoubleClick}
       onPointerCancel={() => {
         dragState.current = null;
         setGhost(null);

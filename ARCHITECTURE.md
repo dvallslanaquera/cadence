@@ -428,23 +428,28 @@ underneath, both in the one calendar format the UI uses (`Jul-27 – Aug-2`).
 
 **Interactions.**
 
-- **Click empty space** → starts a live timer at the minute you clicked and opens
+- **Double-click empty space** → starts a live timer at the minute you clicked and opens
   `EntryPopover` anchored at the click with the description focused. The block appears
   immediately (optimistic), then reconciles with the server response. It keeps running,
   and shows in the timer strip, until you stop it or type an end time.
 
-  Three things have to hold for a click to mean "I am doing this now": the column is
-  today, the minute is at or before now, and nothing is logged later that day, since a
-  timer with no end would run straight through it. When any of them fails the click logs a
+  It takes two clicks rather than one because a single click on the background is too easy
+  to land by accident, while scrolling or reaching for a block, and each stray one left a
+  timer running under an empty description.
+
+  Three things have to hold for a double-click to mean "I am doing this now": the column
+  is today, the minute is at or before now, and nothing is logged later that day, since a
+  timer with no end would run straight through it. When any of them fails it logs a
   `DEFAULT_BLOCK_MINUTES` block instead, clipped to whatever comes next. The rule is
   `intentFromClick` in `domain/layout.ts`, tested there rather than in the component.
 - **Drag empty space** → a ghost block follows the pointer, snapping to 5-minute
   increments (hold `Alt` for 1-minute precision). On release it creates a *completed*
   entry over that exact range and opens the same popover.
 - **Click an existing entry** → the same popover in edit mode: description, project, task,
-  tags, start/end time inputs, and the trash icon in its corner. A running block opens the
-  same way even though it cannot be dragged, which is the only route to its trash icon.
-  Delete is optimistic with
+  tags, start/end time inputs, and the trash icon in its corner. A single click is enough
+  here, because the block is its own target and there is nothing to disambiguate. A running
+  block opens the same way even though it cannot be dragged, which is the only route to its
+  trash icon. Delete is optimistic with
   an undo toast rather than a confirm dialog — a mis-click costs one click to reverse, and
   a confirm dialog on every delete gets clicked through blindly within a week.
 
