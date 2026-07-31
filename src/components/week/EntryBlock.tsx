@@ -50,6 +50,8 @@ export function EntryBlock({
     mode: "move" | "start" | "end";
     originY: number;
     applied: number;
+    /** False for a gesture that may only ever be a click. See `beginDrag`. */
+    draggable: boolean;
   } | null>(null);
 
   // Rendered from local state during a drag, so the block tracks the pointer at
@@ -106,17 +108,20 @@ export function EntryBlock({
     mode: "move" | "start" | "end",
   ) {
     if (readOnly) return;
-    // A running entry has no fixed end to drag.
-    if (running && mode !== "start") return;
+    // A running entry has no fixed end, so it cannot be moved or resized from
+    // the bottom. The press still has to register. Bailing out here left
+    // `drag.current` null, so `endDrag` returned early and a click on a running
+    // block never opened the editor, which is the only route to its trash icon.
+    const draggable = !running || mode === "start";
     event.stopPropagation();
     event.preventDefault();
     (event.currentTarget as HTMLElement).setPointerCapture(event.pointerId);
-    drag.current = { mode, originY: event.clientY, applied: 0 };
+    drag.current = { mode, originY: event.clientY, applied: 0, draggable };
   }
 
   function onPointerMove(event: ReactPointerEvent<HTMLElement>) {
     const state = drag.current;
-    if (!state) return;
+    if (!state || !state.draggable) return;
     const snap = event.altKey ? FINE_SNAP_MINUTES : snapMinutes;
     const rawMinutes = (event.clientY - state.originY) / pxPerMinute;
     const snapped = clampShift(state.mode, Math.round(rawMinutes / snap) * snap);

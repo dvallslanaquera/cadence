@@ -442,7 +442,9 @@ underneath, both in the one calendar format the UI uses (`Jul-27 – Aug-2`).
   increments (hold `Alt` for 1-minute precision). On release it creates a *completed*
   entry over that exact range and opens the same popover.
 - **Click an existing entry** → the same popover in edit mode: description, project, task,
-  tags, start/end time inputs, and the trash icon in its corner. Delete is optimistic with
+  tags, start/end time inputs, and the trash icon in its corner. A running block opens the
+  same way even though it cannot be dragged, which is the only route to its trash icon.
+  Delete is optimistic with
   an undo toast rather than a confirm dialog — a mis-click costs one click to reverse, and
   a confirm dialog on every delete gets clicked through blindly within a week.
 
