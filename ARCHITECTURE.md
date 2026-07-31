@@ -473,6 +473,15 @@ is nothing to fix, because any reported change re-derives which day the end fall
 doing that for a field you only clicked into would quietly take a day off a multi-day
 entry. An **empty end** means the entry has no end: a running one keeps running and shows
 in the timer strip, and typing a time there is how you stop it at a minute of your choice.
+
+The **dial** above those two fields has a 12-hour face, so one revolution is half a day and
+a handle position alone cannot say whether it means 09:00 or 21:00. The AM/PM pair in the
+middle says which, and it applies to whichever handle you last dragged or focused, named
+underneath so it is never a guess. Dragging keeps a handle inside the half of the day it is
+already in. Rolling over past 12 would move an entry twelve hours on a gesture meant to
+move it five minutes. Arrow keys do wrap, because there the step is small and deliberate.
+A span of twelve hours or more fills the ring, which is all a 12-hour face can honestly say
+about it.
 - **Drag an entry's edges** → resize; **drag its body** → move. Both snap to 5 minutes and
   both are rejected on overlap with the conflicting entry flashed.
 

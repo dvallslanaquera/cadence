@@ -2,51 +2,71 @@
 
 import { useRef, useState, type KeyboardEvent, type PointerEvent as ReactPointerEvent } from "react";
 import { FINE_SNAP_MINUTES, SNAP_MINUTES } from "@/lib/constants";
-import { formatDurationHuman, formatMinutesAsClock } from "@/domain/time";
+import { formatDurationHuman, formatMinutesAs12Hour } from "@/domain/time";
 import { cn, withAlpha } from "@/lib/utils";
 
 /**
- * A 24-hour dial for editing a time range by dragging, the way Toggl's clock
- * does. One revolution is one day, so a handle position names a time of day
- * outright — no AM/PM to disambiguate, and the arc between the handles *is* the
- * duration. That matches the week grid, which is also a 24-hour scale.
+ * A 12-hour dial for editing a time range by dragging, the way a wall clock
+ * reads. One revolution is half a day, so a handle position alone cannot say
+ * whether it means 09:00 or 21:00. The AM/PM pair in the middle of the face says
+ * which, and it applies to whichever handle you last touched.
+ *
+ * Dragging moves a handle inside its own half of the day and never rolls over
+ * into the other one. Crossing noon or midnight is the buttons' job, so a drag
+ * can't silently move an entry twelve hours. Arrow keys do wrap, because there
+ * the step is small and deliberate.
  *
  * The dial only ever expresses times of day. Which calendar day the end lands on
  * is the caller's problem: an end at or before the start wraps past midnight.
  */
 
 const MINUTES_PER_DAY = 1440;
+const MINUTES_PER_HALF_DAY = 720;
 
 // viewBox units. Rendered at whatever CSS size the parent gives it.
 const SIZE = 176;
 const CENTER = SIZE / 2;
-const TRACK_RADIUS = 64;
+const TRACK_RADIUS = 60;
 const HANDLE_RADIUS = 9;
-const TICK_INNER = 54;
+const TICK_OUTER = 50;
+/** Hour numbers sit outside the ring, which leaves the middle for the readout. */
+const LABEL_RADIUS = 74;
 
-/** 00:00 at the top, clockwise — the direction a clock and the grid both run. */
+/** 12:00 at the top, clockwise — the direction a clock and the grid both run. */
 function polar(minutes: number, radius: number): { x: number; y: number } {
-  const radians = ((minutes / MINUTES_PER_DAY) * 360 - 90) * (Math.PI / 180);
+  const radians = ((minutes / MINUTES_PER_HALF_DAY) * 360 - 90) * (Math.PI / 180);
   return {
     x: CENTER + radius * Math.cos(radians),
     y: CENTER + radius * Math.sin(radians),
   };
 }
 
-/** Forward span from `from` to `to`, wrapping past midnight. */
-function forwardSpan(from: number, to: number): number {
-  return ((to - from) % MINUTES_PER_DAY + MINUTES_PER_DAY) % MINUTES_PER_DAY;
+/** Forward span from `from` to `to` around the 12-hour face. */
+function faceSpan(from: number, to: number): number {
+  return (((to - from) % MINUTES_PER_HALF_DAY) + MINUTES_PER_HALF_DAY) % MINUTES_PER_HALF_DAY;
+}
+
+/** Forward span across the whole day, wrapping past midnight. */
+function daySpan(from: number, to: number): number {
+  return (((to - from) % MINUTES_PER_DAY) + MINUTES_PER_DAY) % MINUTES_PER_DAY;
 }
 
 function arcPath(from: number, to: number, radius: number): string {
   const a = polar(from, radius);
   const b = polar(to, radius);
-  const largeArc = forwardSpan(from, to) > MINUTES_PER_DAY / 2 ? 1 : 0;
+  const largeArc = faceSpan(from, to) > MINUTES_PER_HALF_DAY / 2 ? 1 : 0;
   return `M ${a.x} ${a.y} A ${radius} ${radius} 0 ${largeArc} 1 ${b.x} ${b.y}`;
 }
 
-const wrap = (minutes: number) =>
+const wrapDay = (minutes: number) =>
   ((Math.round(minutes) % MINUTES_PER_DAY) + MINUTES_PER_DAY) % MINUTES_PER_DAY;
+
+const wrapFace = (minutes: number) =>
+  ((Math.round(minutes) % MINUTES_PER_HALF_DAY) + MINUTES_PER_HALF_DAY) % MINUTES_PER_HALF_DAY;
+
+/** 0 for the morning half of the day, 720 for the afternoon one. */
+const meridiemOf = (minutes: number) =>
+  wrapDay(minutes) < MINUTES_PER_HALF_DAY ? 0 : MINUTES_PER_HALF_DAY;
 
 export type ClockHandle = "start" | "end";
 
@@ -72,22 +92,28 @@ export function ClockRangePicker({
   const svgRef = useRef<SVGSVGElement>(null);
   const dragging = useRef<ClockHandle | null>(null);
   const [active, setActive] = useState<ClockHandle | null>(null);
+  /** Which handle the AM/PM buttons act on. */
+  const [editing, setEditing] = useState<ClockHandle>("start");
 
   const running = endMinutes === null;
-  const span = spanMinutes ?? forwardSpan(startMinutes, endMinutes ?? startMinutes);
+  const span = spanMinutes ?? daySpan(startMinutes, endMinutes ?? startMinutes);
 
-  /** Pointer position -> time of day, snapped. Alt gives minute precision. */
-  function minutesAt(event: ReactPointerEvent<SVGElement>): number {
+  // A running entry has no end handle, so there is nothing else to edit.
+  const editingHandle: ClockHandle = running ? "start" : editing;
+  const editingMinutes = editingHandle === "start" ? startMinutes : (endMinutes as number);
+
+  /** Pointer position -> minutes around the 12-hour face, snapped. Alt is finer. */
+  function faceMinutesAt(event: ReactPointerEvent<SVGElement>): number {
     const svg = svgRef.current;
-    if (!svg) return startMinutes;
+    if (!svg) return 0;
     const rect = svg.getBoundingClientRect();
     const degrees =
       (Math.atan2(event.clientY - (rect.top + rect.height / 2), event.clientX - (rect.left + rect.width / 2)) *
         180) /
       Math.PI;
-    const raw = ((degrees + 90) / 360) * MINUTES_PER_DAY;
+    const raw = ((degrees + 90) / 360) * MINUTES_PER_HALF_DAY;
     const snap = event.altKey ? FINE_SNAP_MINUTES : SNAP_MINUTES;
-    return wrap(Math.round(wrap(raw) / snap) * snap);
+    return wrapFace(Math.round(wrapFace(raw) / snap) * snap);
   }
 
   function beginDrag(event: ReactPointerEvent<SVGElement>, handle: ClockHandle) {
@@ -96,13 +122,17 @@ export function ClockRangePicker({
     event.currentTarget.setPointerCapture(event.pointerId);
     dragging.current = handle;
     setActive(handle);
+    setEditing(handle);
   }
 
   function onPointerMove(event: ReactPointerEvent<SVGElement>) {
     const handle = dragging.current;
     if (!handle) return;
-    const next = minutesAt(event);
     const current = handle === "start" ? startMinutes : endMinutes;
+    if (current === null) return;
+    // The handle keeps the half of the day it is already in; only the buttons
+    // move it across noon.
+    const next = meridiemOf(current) + faceMinutesAt(event);
     if (next !== current) onChange(handle, next);
   }
 
@@ -125,162 +155,195 @@ export function ClockRangePicker({
     if (delta === 0) return;
     event.preventDefault();
     const current = handle === "start" ? startMinutes : (endMinutes ?? startMinutes);
-    onChange(handle, wrap(current + delta));
+    onChange(handle, wrapDay(current + delta));
+  }
+
+  /** Move the handle the buttons are pointed at into the chosen half of the day. */
+  function setMeridiem(target: 0 | typeof MINUTES_PER_HALF_DAY) {
+    const current = editingMinutes;
+    if (meridiemOf(current) === target) return;
+    onChange(editingHandle, target + wrapFace(current));
   }
 
   const start = polar(startMinutes, TRACK_RADIUS);
   const end = polar(endMinutes ?? startMinutes, TRACK_RADIUS);
-  const fullDay = !running && span > 0 && span % MINUTES_PER_DAY === 0;
+  // Anything from twelve hours up fills the face, which is all a 12-hour ring
+  // can honestly say about it.
+  const fullFace = !running && span >= MINUTES_PER_HALF_DAY;
 
   return (
     <div className={cn("flex flex-col items-center", className)}>
-      <svg
-        ref={svgRef}
-        viewBox={`0 0 ${SIZE} ${SIZE}`}
-        className="h-44 w-44 touch-none select-none overflow-visible"
-        role="group"
-        aria-label="Time range dial"
-      >
-        {/* Track */}
-        <circle
-          cx={CENTER}
-          cy={CENTER}
-          r={TRACK_RADIUS}
-          fill="none"
-          stroke="var(--grid-line-strong)"
-          strokeWidth={8}
-        />
-
-        {/* Hour ticks; the quarter marks are longer and carry the labels. */}
-        {Array.from({ length: 24 }, (_, hour) => {
-          const major = hour % 6 === 0;
-          const outer = polar(hour * 60, TICK_INNER);
-          const inner = polar(hour * 60, major ? TICK_INNER - 7 : TICK_INNER - 4);
-          return (
-            <line
-              key={hour}
-              x1={outer.x}
-              y1={outer.y}
-              x2={inner.x}
-              y2={inner.y}
-              stroke={major ? "var(--fg-subtle)" : "var(--border-strong)"}
-              strokeWidth={major ? 1.5 : 1}
-              strokeLinecap="round"
-            />
-          );
-        })}
-        {[0, 6, 12, 18].map((hour) => {
-          const at = polar(hour * 60, TICK_INNER - 18);
-          return (
-            <text
-              key={hour}
-              x={at.x}
-              y={at.y}
-              textAnchor="middle"
-              dominantBaseline="central"
-              className="tabular fill-[var(--fg-subtle)] text-[9px]"
-            >
-              {hour}
-            </text>
-          );
-        })}
-
-        {/* The selected range. A running entry has no end, so it gets a stub. */}
-        {fullDay ? (
+      <div className="relative h-44 w-44">
+        <svg
+          ref={svgRef}
+          viewBox={`0 0 ${SIZE} ${SIZE}`}
+          className="h-44 w-44 touch-none select-none overflow-visible"
+          role="group"
+          aria-label="Time range dial"
+        >
+          {/* Track */}
           <circle
             cx={CENTER}
             cy={CENTER}
             r={TRACK_RADIUS}
             fill="none"
-            stroke={color}
+            stroke="var(--grid-line-strong)"
             strokeWidth={8}
           />
-        ) : (
-          <path
-            d={arcPath(startMinutes, running ? startMinutes + 1 : (endMinutes as number), TRACK_RADIUS)}
-            fill="none"
-            stroke={color}
-            strokeWidth={8}
-            strokeLinecap="round"
-            strokeDasharray={running ? "3 6" : undefined}
-          />
-        )}
 
-        {/* Centre readout: what the arc currently means, in words. */}
-        <text
-          x={CENTER}
-          y={CENTER - 9}
-          textAnchor="middle"
-          dominantBaseline="central"
-          className="tabular fill-[var(--fg)] text-[15px] font-semibold"
-        >
-          {running ? "running" : formatDurationHuman(span)}
-        </text>
-        <text
-          x={CENTER}
-          y={CENTER + 10}
-          textAnchor="middle"
-          dominantBaseline="central"
-          className="tabular fill-[var(--fg-subtle)] text-[10px]"
-        >
-          {formatMinutesAsClock(startMinutes)}
-          {running ? "" : ` – ${formatMinutesAsClock(endMinutes as number)}`}
-        </text>
+          {/* Hour ticks; the quarter marks are longer and carry the labels. */}
+          {Array.from({ length: 12 }, (_, hour) => {
+            const major = hour % 3 === 0;
+            const outer = polar(hour * 60, TICK_OUTER);
+            const inner = polar(hour * 60, major ? TICK_OUTER - 7 : TICK_OUTER - 4);
+            return (
+              <line
+                key={hour}
+                x1={outer.x}
+                y1={outer.y}
+                x2={inner.x}
+                y2={inner.y}
+                stroke={major ? "var(--fg-subtle)" : "var(--border-strong)"}
+                strokeWidth={major ? 1.5 : 1}
+                strokeLinecap="round"
+              />
+            );
+          })}
+          {[0, 3, 6, 9].map((hour) => {
+            const at = polar(hour * 60, LABEL_RADIUS);
+            return (
+              <text
+                key={hour}
+                x={at.x}
+                y={at.y}
+                textAnchor="middle"
+                dominantBaseline="central"
+                className="tabular fill-[var(--fg-subtle)] text-[10px]"
+              >
+                {hour === 0 ? 12 : hour}
+              </text>
+            );
+          })}
 
-        {/* Handles. Start is hollow, end is solid — the same read as the grid's
-            top and bottom resize edges. */}
-        <circle
-          cx={start.x}
-          cy={start.y}
-          r={HANDLE_RADIUS}
-          fill="var(--surface)"
-          stroke={color}
-          strokeWidth={3.5}
-          tabIndex={0}
-          role="slider"
-          aria-label="Start time"
-          aria-valuemin={0}
-          aria-valuemax={MINUTES_PER_DAY - 1}
-          aria-valuenow={startMinutes}
-          aria-valuetext={formatMinutesAsClock(startMinutes)}
-          className={cn(
-            "cursor-grab outline-none",
-            active === "start" && "cursor-grabbing",
+          {/* The selected range. A running entry has no end, so it gets a stub. */}
+          {fullFace ? (
+            <circle
+              cx={CENTER}
+              cy={CENTER}
+              r={TRACK_RADIUS}
+              fill="none"
+              stroke={color}
+              strokeWidth={8}
+            />
+          ) : (
+            <path
+              d={arcPath(startMinutes, running ? startMinutes + 1 : (endMinutes as number), TRACK_RADIUS)}
+              fill="none"
+              stroke={color}
+              strokeWidth={8}
+              strokeLinecap="round"
+              strokeDasharray={running ? "3 6" : undefined}
+            />
           )}
-          style={{ filter: active === "start" ? `drop-shadow(0 0 6px ${withAlpha("#000000", 0.25)})` : undefined }}
-          onPointerDown={(event) => beginDrag(event, "start")}
-          onPointerMove={onPointerMove}
-          onPointerUp={endDrag}
-          onPointerCancel={endDrag}
-          onKeyDown={(event) => onKeyDown(event, "start")}
-        />
-        {running ? null : (
+
+          {/* Handles. Start is hollow, end is solid — the same read as the grid's
+              top and bottom resize edges. */}
           <circle
-            cx={end.x}
-            cy={end.y}
+            cx={start.x}
+            cy={start.y}
             r={HANDLE_RADIUS}
-            fill={color}
-            stroke="var(--surface)"
-            strokeWidth={2.5}
+            fill="var(--surface)"
+            stroke={color}
+            strokeWidth={3.5}
             tabIndex={0}
             role="slider"
-            aria-label="End time"
+            aria-label="Start time"
             aria-valuemin={0}
             aria-valuemax={MINUTES_PER_DAY - 1}
-            aria-valuenow={endMinutes as number}
-            aria-valuetext={formatMinutesAsClock(endMinutes as number)}
-            className={cn("cursor-grab outline-none", active === "end" && "cursor-grabbing")}
-            onPointerDown={(event) => beginDrag(event, "end")}
+            aria-valuenow={startMinutes}
+            aria-valuetext={formatMinutesAs12Hour(startMinutes)}
+            className={cn(
+              "cursor-grab outline-none",
+              active === "start" && "cursor-grabbing",
+            )}
+            style={{ filter: active === "start" ? `drop-shadow(0 0 6px ${withAlpha("#000000", 0.25)})` : undefined }}
+            onPointerDown={(event) => beginDrag(event, "start")}
             onPointerMove={onPointerMove}
             onPointerUp={endDrag}
             onPointerCancel={endDrag}
-            onKeyDown={(event) => onKeyDown(event, "end")}
+            onFocus={() => setEditing("start")}
+            onKeyDown={(event) => onKeyDown(event, "start")}
           />
-        )}
-      </svg>
+          {running ? null : (
+            <circle
+              cx={end.x}
+              cy={end.y}
+              r={HANDLE_RADIUS}
+              fill={color}
+              stroke="var(--surface)"
+              strokeWidth={2.5}
+              tabIndex={0}
+              role="slider"
+              aria-label="End time"
+              aria-valuemin={0}
+              aria-valuemax={MINUTES_PER_DAY - 1}
+              aria-valuenow={endMinutes as number}
+              aria-valuetext={formatMinutesAs12Hour(endMinutes as number)}
+              className={cn("cursor-grab outline-none", active === "end" && "cursor-grabbing")}
+              onPointerDown={(event) => beginDrag(event, "end")}
+              onPointerMove={onPointerMove}
+              onPointerUp={endDrag}
+              onPointerCancel={endDrag}
+              onFocus={() => setEditing("end")}
+              onKeyDown={(event) => onKeyDown(event, "end")}
+            />
+          )}
+        </svg>
 
+        {/* Centre readout, as HTML rather than SVG text so the AM/PM pair can be
+            real buttons. Only the buttons take the pointer; the rest of the
+            middle stays out of the way of a handle dragged near it. */}
+        <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-1">
+          <span className="tabular text-[15px] font-semibold leading-none text-fg">
+            {running ? "running" : formatDurationHuman(span)}
+          </span>
+
+          <div className="pointer-events-auto flex overflow-hidden rounded-md border border-border">
+            {([0, MINUTES_PER_HALF_DAY] as const).map((half) => {
+              const selected = meridiemOf(editingMinutes) === half;
+              const label = half === 0 ? "AM" : "PM";
+              return (
+                <button
+                  key={label}
+                  type="button"
+                  aria-pressed={selected}
+                  aria-label={`${label}, ${editingHandle} time`}
+                  onClick={() => setMeridiem(half)}
+                  className={cn(
+                    "px-2 py-0.5 text-[10px] font-semibold leading-none transition",
+                    selected
+                      ? "bg-accent text-accent-fg"
+                      : "bg-surface text-fg-subtle hover:bg-surface-2 hover:text-fg",
+                  )}
+                >
+                  {label}
+                </button>
+              );
+            })}
+          </div>
+
+          <span className="text-[9px] leading-none text-fg-subtle">
+            {running ? "start" : `${editingHandle} time`}
+          </span>
+        </div>
+      </div>
+
+      <p className="tabular mt-1 text-[11px] font-medium text-fg-muted">
+        {formatMinutesAs12Hour(startMinutes)}
+        {running ? "" : ` – ${formatMinutesAs12Hour(endMinutes as number)}`}
+      </p>
       <p className="mt-0.5 text-[10px] text-fg-subtle">
-        Drag the handles · hold Alt for 1-minute steps
+        Drag the handles · AM/PM moves the {editingHandle} · hold Alt for 1-minute steps
       </p>
     </div>
   );

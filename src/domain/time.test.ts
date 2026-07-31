@@ -4,6 +4,7 @@ import {
   formatDayLabel,
   formatDurationClock,
   formatDurationHuman,
+  formatMinutesAs12Hour,
   formatMinutesAsClock,
   formatRangeLabel,
   isoWeekNumber,
@@ -135,6 +136,14 @@ describe("formatting", () => {
     expect(formatMinutesAsClock(540)).toBe("09:00");
     expect(formatMinutesAsClock(0)).toBe("00:00");
     expect(formatMinutesAsClock(1439)).toBe("23:59");
+  });
+
+  it("formats the dial readout on a 12-hour clock", () => {
+    expect(formatMinutesAs12Hour(540)).toBe("9:00 am");
+    expect(formatMinutesAs12Hour(0)).toBe("12:00 am");
+    expect(formatMinutesAs12Hour(720)).toBe("12:00 pm");
+    expect(formatMinutesAs12Hour(780)).toBe("1:00 pm");
+    expect(formatMinutesAs12Hour(1439)).toBe("11:59 pm");
   });
 
   it("formats durations as uncapped HH:MM:SS for export", () => {

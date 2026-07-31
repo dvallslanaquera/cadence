@@ -181,6 +181,18 @@ export function formatMinutesAsClock(minutes: number): string {
   return `${pad(Math.floor(wrapped / 60))}:${pad(wrapped % 60)}`;
 }
 
+/**
+ * The same minute on a 12-hour clock: 540 -> "9:00 am", 0 -> "12:00 am". For the
+ * dial, which has a 12-hour face and says which half of the day it means with a
+ * pair of buttons rather than by position.
+ */
+export function formatMinutesAs12Hour(minutes: number): string {
+  const wrapped = ((minutes % 1440) + 1440) % 1440;
+  const hours = Math.floor(wrapped / 60);
+  const hour12 = hours % 12 === 0 ? 12 : hours % 12;
+  return `${hour12}:${pad(wrapped % 60)} ${hours < 12 ? "am" : "pm"}`;
+}
+
 /** "HH:MM:SS", hours uncapped. Toggl's duration column format. */
 export function formatDurationClock(minutes: number): string {
   const total = Math.max(0, Math.round(minutes));
