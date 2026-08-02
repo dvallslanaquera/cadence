@@ -4,7 +4,7 @@ import { useMemo, useRef, useState, type ReactNode } from "react";
 import * as Popover from "@radix-ui/react-popover";
 import { Check, ChevronDown, Plus } from "lucide-react";
 import { FREQUENT_PROJECT_COUNT, nextProjectColor, PROJECT_COLORS } from "@/lib/constants";
-import { useCreateProject, useFrequentProjectIds, useProjects } from "@/lib/queries";
+import { useCreateProject, useFrequentProjectIds, useProjects, useUpdateProject } from "@/lib/queries";
 import { cn } from "@/lib/utils";
 import { Button, ColorDot, Input } from "./primitives";
 import type { Project } from "@/lib/types";
@@ -44,10 +44,12 @@ export function ProjectPicker({
   const { data: projects } = useProjects();
   const { data: frequentIds } = useFrequentProjectIds();
   const createProject = useCreateProject();
+  const updateProject = useUpdateProject();
 
   const [open, setOpen] = useState(false);
   const [creating, setCreating] = useState(false);
   const [newName, setNewName] = useState("");
+  const [newColor, setNewColor] = useState<string>(PROJECT_COLORS[0]);
   const listRef = useRef<HTMLDivElement>(null);
 
   const all = useMemo(() => projects ?? [], [projects]);
@@ -87,7 +89,7 @@ export function ProjectPicker({
     }
 
     createProject.mutate(
-      { name, color: nextProjectColor(all.map((project) => project.color)) },
+      { name, color: newColor },
       { onSuccess: (result) => choose(result.project.id) },
     );
   }
@@ -95,19 +97,30 @@ export function ProjectPicker({
   function row(project: Project) {
     const isSelected = project.id === value;
     return (
-      <button
+      <div
         key={project.id}
-        type="button"
+        role="button"
+        tabIndex={0}
+        aria-pressed={isSelected}
         onClick={() => choose(project.id)}
+        onKeyDown={(event) => {
+          if (event.key === "Enter" || event.key === " ") {
+            event.preventDefault();
+            choose(project.id);
+          }
+        }}
         className={cn(
           "flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm transition",
           isSelected ? "bg-accent-soft text-accent" : "text-fg hover:bg-surface-2",
         )}
       >
-        <ColorDot color={project.color} />
+        <ProjectColorSwatch
+          color={project.color}
+          onPick={(color) => updateProject.mutate({ id: project.id, color })}
+        />
         <span className="min-w-0 flex-1 truncate">{project.name}</span>
         {isSelected ? <Check className="h-3.5 w-3.5 shrink-0" /> : null}
-      </button>
+      </div>
     );
   }
 
@@ -119,6 +132,7 @@ export function ProjectPicker({
         if (!next) {
           setCreating(false);
           setNewName("");
+          setNewColor(PROJECT_COLORS[0]);
         }
       }}
     >
@@ -173,13 +187,14 @@ export function ProjectPicker({
 
           <div className="mt-1 border-t border-border pt-1.5">
             {creating ? (
-              <div className="flex gap-1.5 px-0.5 pb-0.5">
+              <div className="flex items-center gap-1.5 px-0.5 pb-0.5">
+                <ProjectColorSwatch color={newColor} onPick={setNewColor} />
                 <Input
                   autoFocus
                   value={newName}
                   placeholder="Project name"
                   maxLength={80}
-                  className="h-8 text-sm"
+                  className="h-8 flex-1 text-sm"
                   onChange={(event) => setNewName(event.target.value)}
                   onKeyDown={(event) => {
                     if (event.key === "Enter") {
@@ -205,13 +220,73 @@ export function ProjectPicker({
             ) : (
               <button
                 type="button"
-                onClick={() => setCreating(true)}
+                onClick={() => {
+                  setCreating(true);
+                  setNewColor(nextProjectColor(all.map((project) => project.color)));
+                }}
                 className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm text-fg-muted transition hover:bg-surface-2 hover:text-fg"
               >
                 <Plus className="h-3.5 w-3.5" />
                 New project
               </button>
             )}
+          </div>
+        </Popover.Content>
+      </Popover.Portal>
+    </Popover.Root>
+  );
+}
+
+/**
+ * A project's color dot as a button. Clicking opens the palette to recolor an
+ * existing project or to pick a color for a new one. The click is stopped from
+ * bubbling so it never also selects the project, since the swatch shares the
+ * row with the project's choose control.
+ */
+function ProjectColorSwatch({
+  color,
+  onPick,
+}: {
+  color: string;
+  onPick: (color: string) => void;
+}) {
+  return (
+    <Popover.Root>
+      <Popover.Trigger asChild>
+        <button
+          type="button"
+          aria-label="Change project color"
+          title="Change color"
+          onClick={(event) => event.stopPropagation()}
+          className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full transition hover:bg-surface-2"
+        >
+          <span className="h-3.5 w-3.5 rounded-full" style={{ background: color }} />
+        </button>
+      </Popover.Trigger>
+      <Popover.Portal>
+        <Popover.Content
+          align="start"
+          sideOffset={4}
+          collisionPadding={12}
+          className="z-[70] w-[min(200px,calc(100vw-24px))] rounded-xl border border-border bg-surface p-2 shadow-[var(--shadow)]"
+        >
+          <div className="grid grid-cols-4 gap-1.5">
+            {PROJECT_COLORS.map((swatch) => (
+              <Popover.Close asChild key={swatch}>
+                <button
+                  type="button"
+                  aria-label={`Use ${swatch}`}
+                  onClick={() => onPick(swatch)}
+                  className={cn(
+                    "h-7 w-7 rounded-full transition hover:scale-110",
+                    swatch === color
+                      ? "ring-2 ring-accent ring-offset-2 ring-offset-surface"
+                      : "ring-1 ring-border",
+                  )}
+                  style={{ background: swatch }}
+                />
+              </Popover.Close>
+            ))}
           </div>
         </Popover.Content>
       </Popover.Portal>

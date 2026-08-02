@@ -7,7 +7,6 @@ import {
   useProjects,
   useSettings,
   useStopTimer,
-  useTasks,
   useUpdateEntry,
 } from "@/lib/queries";
 import {
@@ -20,7 +19,7 @@ import {
   shiftDateKey,
   wallClockMinutes,
 } from "@/domain/time";
-import { Button, ColorDot, Field, IconButton, Input, Select } from "@/components/ui/primitives";
+import { Button, ColorDot, Field, IconButton, Input } from "@/components/ui/primitives";
 import { DescriptionInput } from "@/components/ui/DescriptionInput";
 import { ProjectPicker } from "@/components/ui/ProjectPicker";
 import { TimeInput } from "@/components/ui/TimeInput";
@@ -60,7 +59,6 @@ export function EntryPopover({
 }) {
   const { data: settings } = useSettings();
   const { data: projects } = useProjects();
-  const { data: tasks } = useTasks({ status: "OPEN" });
   const update = useUpdateEntry();
   const remove = useDeleteEntry();
   const stop = useStopTimer();
@@ -71,7 +69,6 @@ export function EntryPopover({
 
   const [description, setDescription] = useState(entry.description);
   const [projectId, setProjectId] = useState(entry.project.id);
-  const [taskId, setTaskId] = useState(entry.task?.id ?? "");
   const [tags, setTags] = useState(entry.tags.join(", "));
   // The start's calendar day anchors the entry. It has no control of its own —
   // the entry already sits on a day in the grid, and you move it by dragging it
@@ -100,7 +97,6 @@ export function EntryPopover({
   useEffect(() => {
     setDescription(entry.description);
     setProjectId(entry.project.id);
-    setTaskId(entry.task?.id ?? "");
     setTags(entry.tags.join(", "));
     setStartDate(formatDateISO(new Date(entry.startedAt), tz));
     setStartTime(formatClock(new Date(entry.startedAt), tz));
@@ -168,7 +164,6 @@ export function EntryPopover({
       id: entry.id,
       description: description.trim(),
       projectId,
-      taskId: taskId || null,
       tags: tags
         .split(",")
         .map((tag) => tag.trim())
@@ -198,9 +193,6 @@ export function EntryPopover({
   }
 
   const projectOptions = projects ?? [];
-  const taskOptions = (tasks ?? []).filter(
-    (task) => task.project.id === projectId || task.id === taskId,
-  );
 
   return (
     <div className="space-y-2.5">
@@ -226,9 +218,6 @@ export function EntryPopover({
         </IconButton>
       </div>
 
-      {/* Project gets its own row: side by side with Task it was ~150px wide,
-          which truncates every real project name to "Freelance …" and makes the
-          control read as a label rather than something you can click. */}
       <div className="space-y-2">
         <Field label="Project" as="div">
           <ProjectPicker
@@ -236,17 +225,6 @@ export function EntryPopover({
             onChange={setProjectId}
             fallback={entry.project}
           />
-        </Field>
-
-        <Field label="Task">
-          <Select value={taskId} onChange={(event) => setTaskId(event.target.value)}>
-            <option value="">None</option>
-            {taskOptions.map((task) => (
-              <option key={task.id} value={task.id}>
-                {task.name}
-              </option>
-            ))}
-          </Select>
         </Field>
       </div>
 
