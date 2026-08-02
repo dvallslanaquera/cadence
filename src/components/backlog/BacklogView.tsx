@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import {
+  AlignLeft,
   ArrowLeftRight,
   CalendarDays,
   Check,
@@ -30,7 +31,7 @@ import {
   Select,
   Spinner,
 } from "@/components/ui/primitives";
-import type { Task, TaskSection, TaskStatus } from "@/lib/types";
+import type { Project, Task, TaskSection, TaskStatus } from "@/lib/types";
 
 type Filter = "OPEN" | "DONE" | "ALL";
 
@@ -74,6 +75,9 @@ export function BacklogView() {
   const [projectId, setProjectId] = useState("");
   const [section, setSection] = useState<TaskSection>("WORK");
   const [dueDate, setDueDate] = useState("");
+  const [notes, setNotes] = useState("");
+  const [showNotes, setShowNotes] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
 
   // Section first, then project inside it. Both sections are always rendered,
   // empty or not, so the split stays visible and you can see where a task lands.
@@ -113,6 +117,7 @@ export function BacklogView() {
     createTask.mutate(
       {
         name: trimmed,
+        notes: notes.trim() || null,
         projectId: projectId || null,
         section,
         dueDate: dueDate || null,
@@ -121,6 +126,7 @@ export function BacklogView() {
         onSuccess: () => {
           setName("");
           setDueDate("");
+          setNotes("");
           // The section is left as it was: adding several study tasks in a row
           // shouldn't mean re-picking it every time.
         },
@@ -193,11 +199,26 @@ export function BacklogView() {
             onChange={(event) => setDueDate(event.target.value)}
             className="sm:w-40"
           />
+          <IconButton
+            label="Add a description"
+            variant={showNotes || notes ? "secondary" : "ghost"}
+            onClick={() => setShowNotes((prev) => !prev)}
+          >
+            <AlignLeft className="h-4 w-4" />
+          </IconButton>
           <Button variant="primary" onClick={addTask} disabled={createTask.isPending}>
             <Plus className="h-4 w-4" />
             Add
           </Button>
         </div>
+        {showNotes ? (
+          <textarea
+            value={notes}
+            placeholder="Description (optional)"
+            onChange={(event) => setNotes(event.target.value)}
+            className="mt-2 h-20 w-full resize-y rounded-lg border border-border bg-surface px-3 py-2 text-sm placeholder:text-fg-subtle focus:outline-none"
+          />
+        ) : null}
       </div>
 
       {isLoading ? (
@@ -242,6 +263,16 @@ export function BacklogView() {
                             key={task.id}
                             task={task}
                             todayKey={todayKey}
+                            projects={projects}
+                            isEditing={editingId === task.id}
+                            onBeginEdit={() => setEditingId(task.id)}
+                            onCancelEdit={() => setEditingId(null)}
+                            onUpdate={(patch) =>
+                              updateTask.mutate(
+                                { id: task.id, ...patch },
+                                { onSuccess: () => setEditingId(null) },
+                              )
+                            }
                             onToggleStatus={() =>
                               updateTask.mutate({
                                 id: task.id,
@@ -284,6 +315,11 @@ export function BacklogView() {
 function TaskRow({
   task,
   todayKey,
+  projects,
+  isEditing,
+  onBeginEdit,
+  onCancelEdit,
+  onUpdate,
   onToggleStatus,
   onMoveSection,
   onStart,
@@ -291,11 +327,35 @@ function TaskRow({
 }: {
   task: Task;
   todayKey: string;
+  projects: Project[] | undefined;
+  isEditing: boolean;
+  onBeginEdit: () => void;
+  onCancelEdit: () => void;
+  onUpdate: (patch: {
+    name?: string;
+    notes?: string | null;
+    projectId?: string | null;
+    section?: TaskSection;
+    dueDate?: string | null;
+  }) => void;
   onToggleStatus: () => void;
   onMoveSection: () => void;
   onStart: () => void;
   onDelete: () => void;
 }) {
+  if (isEditing) {
+    return (
+      <li className="px-3 py-2.5">
+        <TaskEditForm
+          task={task}
+          projects={projects}
+          onSave={onUpdate}
+          onCancel={onCancelEdit}
+        />
+      </li>
+    );
+  }
+
   const done = task.status === "DONE";
   const overdue = !done && task.dueDate !== null && task.dueDate < todayKey;
 
@@ -313,10 +373,17 @@ function TaskRow({
         {done ? <Check className="h-3.5 w-3.5" /> : null}
       </button>
 
-      <div className="min-w-0 flex-1">
+      <div
+        className="min-w-0 flex-1 cursor-text"
+        onDoubleClick={onBeginEdit}
+        title="Double-click to edit"
+      >
         <p className={cn("truncate text-sm", done && "text-fg-subtle line-through")}>
           {task.name}
         </p>
+        {task.notes ? (
+          <p className="mt-0.5 line-clamp-2 text-xs text-fg-subtle">{task.notes}</p>
+        ) : null}
         <div className="flex flex-wrap items-center gap-2 text-xs text-fg-subtle">
           {task.dueDate ? (
             <span
@@ -360,5 +427,115 @@ function TaskRow({
         <Trash2 className="h-4 w-4" />
       </IconButton>
     </li>
+  );
+}
+
+function TaskEditForm({
+  task,
+  projects,
+  onSave,
+  onCancel,
+}: {
+  task: Task;
+  projects: Project[] | undefined;
+  onSave: (patch: {
+    name?: string;
+    notes?: string | null;
+    projectId?: string | null;
+    section?: TaskSection;
+    dueDate?: string | null;
+  }) => void;
+  onCancel: () => void;
+}) {
+  // The select uses "" for the system "Others" project. A task whose project is
+  // that one therefore shows the empty option, and saving maps "" back to null.
+  const othersId = (projects ?? []).find((project) => project.isSystem)?.id;
+  const seededProjectId =
+    task.project.id === othersId ? "" : task.project.id;
+
+  const [name, setName] = useState(task.name);
+  const [notes, setNotes] = useState(task.notes ?? "");
+  const [section, setSection] = useState<TaskSection>(task.section);
+  const [projectId, setProjectId] = useState(seededProjectId);
+  const [dueDate, setDueDate] = useState(task.dueDate ?? "");
+
+  function save() {
+    const trimmed = name.trim();
+    if (!trimmed) return;
+    onSave({
+      name: trimmed,
+      notes: notes.trim() || null,
+      projectId: projectId || null,
+      section,
+      dueDate: dueDate || null,
+    });
+  }
+
+  return (
+    <div className="space-y-2">
+      <Input
+        value={name}
+        placeholder="Task name"
+        autoFocus
+        onChange={(event) => setName(event.target.value)}
+        onKeyDown={(event) => {
+          if (event.key === "Enter") save();
+          if (event.key === "Escape") onCancel();
+        }}
+        className="flex-1"
+      />
+      <div className="flex flex-wrap gap-2">
+        <Select
+          value={section}
+          aria-label="Section"
+          onChange={(event) => setSection(event.target.value as TaskSection)}
+          className="w-32"
+        >
+          {SECTIONS.map((entry) => (
+            <option key={entry.value} value={entry.value}>
+              {entry.short}
+            </option>
+          ))}
+        </Select>
+        <Select
+          value={projectId}
+          aria-label="Project"
+          onChange={(event) => setProjectId(event.target.value)}
+          className="w-40"
+        >
+          <option value="">Others</option>
+          {(projects ?? [])
+            .filter((project) => !project.isSystem)
+            .map((project) => (
+              <option key={project.id} value={project.id}>
+                {project.name}
+              </option>
+            ))}
+        </Select>
+        <Input
+          type="date"
+          value={dueDate}
+          onChange={(event) => setDueDate(event.target.value)}
+          className="w-40"
+        />
+      </div>
+      <textarea
+        value={notes}
+        placeholder="Description (optional)"
+        onChange={(event) => setNotes(event.target.value)}
+        onKeyDown={(event) => {
+          if (event.key === "Escape") onCancel();
+        }}
+        className="h-20 w-full resize-y rounded-lg border border-border bg-surface px-3 py-2 text-sm placeholder:text-fg-subtle focus:outline-none"
+      />
+      <div className="flex justify-end gap-2">
+        <Button size="sm" variant="ghost" onClick={onCancel}>
+          Cancel
+        </Button>
+        <Button size="sm" variant="primary" onClick={save}>
+          Save
+        </Button>
+      </div>
+    </div>
   );
 }
