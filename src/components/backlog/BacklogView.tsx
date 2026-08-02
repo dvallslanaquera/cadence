@@ -9,7 +9,6 @@ import {
   Play,
   Plus,
   Trash2,
-  Undo2,
 } from "lucide-react";
 import {
   useCreateTask,
@@ -31,9 +30,8 @@ import {
   Select,
   Spinner,
 } from "@/components/ui/primitives";
-import type { Project, Task, TaskSection, TaskStatus } from "@/lib/types";
-
-type Filter = "OPEN" | "DONE" | "ALL";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
+import type { Project, Task, TaskSection } from "@/lib/types";
 
 /**
  * The backlog's top-level split, in display order. A section is coarser than a
@@ -60,10 +58,7 @@ export function BacklogView() {
   const { data: settings } = useSettings();
   const tz = settings?.timezone ?? "UTC";
 
-  const [filter, setFilter] = useState<Filter>("OPEN");
-  const { data: tasks, isLoading } = useTasks(
-    filter === "ALL" ? {} : { status: filter as TaskStatus },
-  );
+  const { data: tasks, isLoading } = useTasks({});
   const { data: projects } = useProjects();
 
   const createTask = useCreateTask();
@@ -78,38 +73,55 @@ export function BacklogView() {
   const [notes, setNotes] = useState("");
   const [showNotes, setShowNotes] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [confirmComplete, setConfirmComplete] = useState<Task | null>(null);
 
-  // Section first, then project inside it. Both sections are always rendered,
-  // empty or not, so the split stays visible and you can see where a task lands.
-  const grouped = useMemo(() => {
+  // Open tasks split into Work/Study. Completed tasks drop out of that split
+  // into their own bucket below, since once they're done the section is just a
+  // place to send them back to, not where they live.
+  const { openSections, completedGroups, completedCount } = useMemo(() => {
     const bySection = new Map<TaskSection, Map<string, ProjectGroup>>(
       SECTIONS.map((entry) => [entry.value, new Map<string, ProjectGroup>()]),
     );
+    const completed = new Map<string, ProjectGroup>();
 
     for (const task of tasks ?? []) {
+      const bucket = (map: Map<string, ProjectGroup>) =>
+        map.get(task.project.id) ?? { project: task.project, tasks: [] };
+
+      if (task.status === "DONE") {
+        const group = bucket(completed);
+        group.tasks.push(task);
+        completed.set(task.project.id, group);
+        continue;
+      }
+
       const projectsInSection = bySection.get(task.section);
       if (!projectsInSection) continue; // a section this build doesn't know about
-      const bucket = projectsInSection.get(task.project.id) ?? {
-        project: task.project,
-        tasks: [],
-      };
-      bucket.tasks.push(task);
-      projectsInSection.set(task.project.id, bucket);
+      const group = bucket(projectsInSection);
+      group.tasks.push(task);
+      projectsInSection.set(task.project.id, group);
     }
 
-    return SECTIONS.map((entry) => {
-      const groups = [...(bySection.get(entry.value)?.values() ?? [])].sort((a, b) =>
-        a.project.name.localeCompare(b.project.name),
-      );
+    const sortGroups = (groups: ProjectGroup[]) =>
+      groups.sort((a, b) => a.project.name.localeCompare(b.project.name));
+
+    const openSections = SECTIONS.map((entry) => {
+      const groups = sortGroups([...(bySection.get(entry.value)?.values() ?? [])]);
       return {
         ...entry,
         groups,
         count: groups.reduce((sum, group) => sum + group.tasks.length, 0),
       };
     });
+    const completedGroups = sortGroups([...completed.values()]);
+    const completedCount = completedGroups.reduce(
+      (sum, group) => sum + group.tasks.length,
+      0,
+    );
+    return { openSections, completedGroups, completedCount };
   }, [tasks]);
 
-  const total = grouped.reduce((sum, entry) => sum + entry.count, 0);
+  const total = openSections.reduce((sum, entry) => sum + entry.count, 0) + completedCount;
 
   function addTask() {
     const trimmed = name.trim();
@@ -140,18 +152,6 @@ export function BacklogView() {
     <div className="py-4">
       <div className="mb-4 flex flex-wrap items-center gap-2">
         <h1 className="text-lg font-semibold">Backlog</h1>
-        <div className="ml-auto flex gap-1">
-          {(["OPEN", "DONE", "ALL"] as const).map((value) => (
-            <Button
-              key={value}
-              size="sm"
-              variant={filter === value ? "primary" : "ghost"}
-              onClick={() => setFilter(value)}
-            >
-              {value === "OPEN" ? "Open" : value === "DONE" ? "Completed" : "All"}
-            </Button>
-          ))}
-        </div>
       </div>
 
       {/* ---- Add form ---- */}
@@ -227,12 +227,12 @@ export function BacklogView() {
         </div>
       ) : total === 0 ? (
         <EmptyState
-          title={filter === "DONE" ? "Nothing completed yet" : "The backlog is empty"}
+          title="The backlog is empty"
           hint="Add a task above. Starting one opens a timer linked to it, so the dashboard can show real time spent."
         />
       ) : (
         <div className="space-y-7">
-          {grouped.map((sectionGroup) => (
+          {openSections.map((sectionGroup) => (
             <section key={sectionGroup.value}>
               <div className="mb-2.5 flex items-baseline gap-2 border-b border-border pb-1.5">
                 <h2 className="text-sm font-semibold">{sectionGroup.label}</h2>
@@ -273,12 +273,7 @@ export function BacklogView() {
                                 { onSuccess: () => setEditingId(null) },
                               )
                             }
-                            onToggleStatus={() =>
-                              updateTask.mutate({
-                                id: task.id,
-                                status: task.status === "DONE" ? "OPEN" : "DONE",
-                              })
-                            }
+                            onToggleStatus={() => setConfirmComplete(task)}
                             onMoveSection={() =>
                               updateTask.mutate({
                                 id: task.id,
@@ -302,12 +297,79 @@ export function BacklogView() {
               )}
             </section>
           ))}
+
+          {/* ---- Completed ---- */}
+          <section>
+            <div className="mb-2.5 flex items-baseline gap-2 border-b border-border pb-1.5">
+              <h2 className="text-sm font-semibold">Completed</h2>
+              <span className="tabular text-xs text-fg-subtle">{completedCount}</span>
+            </div>
+
+            {completedCount === 0 ? (
+              <p className="rounded-xl border border-dashed border-border px-3 py-5 text-center text-xs text-fg-subtle">
+                Nothing completed yet.
+              </p>
+            ) : (
+              <div className="space-y-4">
+                {completedGroups.map(({ project, tasks: projectTasks }) => (
+                  <div key={project.id}>
+                    <h3 className="mb-1.5 flex items-center gap-2 text-sm font-medium text-fg-muted">
+                      <ColorDot color={project.color} />
+                      {project.name}
+                      <span className="text-xs text-fg-subtle">
+                        ({projectTasks.length})
+                      </span>
+                    </h3>
+
+                    <ul className="divide-y divide-border overflow-hidden rounded-xl border border-border bg-surface">
+                      {projectTasks.map((task) => (
+                        <TaskRow
+                          key={task.id}
+                          task={task}
+                          todayKey={todayKey}
+                          projects={projects}
+                          isEditing={editingId === task.id}
+                          onBeginEdit={() => setEditingId(task.id)}
+                          onCancelEdit={() => setEditingId(null)}
+                          onUpdate={(patch) =>
+                            updateTask.mutate(
+                              { id: task.id, ...patch },
+                              { onSuccess: () => setEditingId(null) },
+                            )
+                          }
+                          onMoveToSection={(section) =>
+                            updateTask.mutate({ id: task.id, status: "OPEN", section })
+                          }
+                          onDelete={() => deleteTask.mutate(task.id)}
+                        />
+                      ))}
+                    </ul>
+                  </div>
+                ))}
+              </div>
+            )}
+          </section>
         </div>
       )}
 
-      <p className="mt-4 text-xs text-fg-subtle">
-        Deleting a task keeps its logged time — only the link to the task is removed.
-      </p>
+      <ConfirmDialog
+        open={confirmComplete !== null}
+        title="Mark as completed?"
+        description={
+          confirmComplete
+            ? `"${confirmComplete.name}" moves to the Completed section below.`
+            : undefined
+        }
+        confirmLabel="Complete"
+        cancelLabel="Cancel"
+        onConfirm={() => {
+          if (confirmComplete) {
+            updateTask.mutate({ id: confirmComplete.id, status: "DONE" });
+          }
+          setConfirmComplete(null);
+        }}
+        onCancel={() => setConfirmComplete(null)}
+      />
     </div>
   );
 }
@@ -322,6 +384,7 @@ function TaskRow({
   onUpdate,
   onToggleStatus,
   onMoveSection,
+  onMoveToSection,
   onStart,
   onDelete,
 }: {
@@ -338,9 +401,12 @@ function TaskRow({
     section?: TaskSection;
     dueDate?: string | null;
   }) => void;
-  onToggleStatus: () => void;
-  onMoveSection: () => void;
-  onStart: () => void;
+  // Open-row actions.
+  onToggleStatus?: () => void;
+  onMoveSection?: () => void;
+  onStart?: () => void;
+  // Completed-row action: reopen straight into the chosen backlog.
+  onMoveToSection?: (section: TaskSection) => void;
   onDelete: () => void;
 }) {
   if (isEditing) {
@@ -359,48 +425,76 @@ function TaskRow({
   const done = task.status === "DONE";
   const overdue = !done && task.dueDate !== null && task.dueDate < todayKey;
 
+  const body = (
+    <div
+      className="min-w-0 flex-1 cursor-text"
+      onDoubleClick={onBeginEdit}
+      title="Double-click to edit"
+    >
+      <p className={cn("truncate text-sm", done && "text-fg-subtle line-through")}>
+        {task.name}
+      </p>
+      {task.notes ? (
+        <p className="mt-0.5 line-clamp-2 text-xs text-fg-subtle">{task.notes}</p>
+      ) : null}
+      <div className="flex flex-wrap items-center gap-2 text-xs text-fg-subtle">
+        {task.dueDate ? (
+          <span
+            className={cn(
+              "inline-flex items-center gap-1",
+              overdue && "font-medium text-danger",
+            )}
+          >
+            <CalendarDays className="h-3 w-3" />
+            {task.dueDate}
+          </span>
+        ) : null}
+        {task.loggedMinutes > 0 ? (
+          <span className="tabular">{formatDurationHuman(task.loggedMinutes)} logged</span>
+        ) : null}
+      </div>
+    </div>
+  );
+
+  if (done) {
+    return (
+      <li className="flex items-center gap-2.5 px-3 py-2.5 transition hover:bg-surface-2">
+        <span
+          aria-label="Completed"
+          className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md border border-accent bg-accent text-accent-fg"
+        >
+          <Check className="h-3.5 w-3.5" />
+        </span>
+        {body}
+        {SECTIONS.map((entry) => (
+          <Button
+            key={entry.value}
+            size="sm"
+            variant={task.section === entry.value ? "secondary" : "ghost"}
+            onClick={() => onMoveToSection?.(entry.value)}
+            title={`Reopen into ${entry.label.toLowerCase()}`}
+          >
+            {entry.short}
+          </Button>
+        ))}
+        <IconButton label="Delete task" variant="danger" onClick={onDelete}>
+          <Trash2 className="h-4 w-4" />
+        </IconButton>
+      </li>
+    );
+  }
+
   return (
     <li className="flex items-center gap-2.5 px-3 py-2.5 transition hover:bg-surface-2">
       <button
         type="button"
-        aria-label={done ? "Reopen task" : "Complete task"}
+        aria-label="Complete task"
         onClick={onToggleStatus}
-        className={cn(
-          "flex h-5 w-5 shrink-0 items-center justify-center rounded-md border transition",
-          done ? "border-accent bg-accent text-accent-fg" : "border-border-strong hover:border-accent",
-        )}
+        className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md border border-border-strong transition hover:border-accent"
       >
-        {done ? <Check className="h-3.5 w-3.5" /> : null}
       </button>
 
-      <div
-        className="min-w-0 flex-1 cursor-text"
-        onDoubleClick={onBeginEdit}
-        title="Double-click to edit"
-      >
-        <p className={cn("truncate text-sm", done && "text-fg-subtle line-through")}>
-          {task.name}
-        </p>
-        {task.notes ? (
-          <p className="mt-0.5 line-clamp-2 text-xs text-fg-subtle">{task.notes}</p>
-        ) : null}
-        <div className="flex flex-wrap items-center gap-2 text-xs text-fg-subtle">
-          {task.dueDate ? (
-            <span
-              className={cn(
-                "inline-flex items-center gap-1",
-                overdue && "font-medium text-danger",
-              )}
-            >
-              <CalendarDays className="h-3 w-3" />
-              {task.dueDate}
-            </span>
-          ) : null}
-          {task.loggedMinutes > 0 ? (
-            <span className="tabular">{formatDurationHuman(task.loggedMinutes)} logged</span>
-          ) : null}
-        </div>
-      </div>
+      {body}
 
       <IconButton
         label={`Move to ${shortLabel(otherSection(task.section))}`}
@@ -409,19 +503,13 @@ function TaskRow({
         <ArrowLeftRight className="h-4 w-4" />
       </IconButton>
 
-      {!done ? (
-        <IconButton
-          label={`Start ${task.name}`}
-          onClick={onStart}
-          className="text-accent hover:bg-accent-soft"
-        >
-          <Play className="h-4 w-4 fill-current" />
-        </IconButton>
-      ) : (
-        <IconButton label="Reopen task" onClick={onToggleStatus}>
-          <Undo2 className="h-4 w-4" />
-        </IconButton>
-      )}
+      <IconButton
+        label={`Start ${task.name}`}
+        onClick={onStart}
+        className="text-accent hover:bg-accent-soft"
+      >
+        <Play className="h-4 w-4 fill-current" />
+      </IconButton>
 
       <IconButton label="Delete task" variant="danger" onClick={onDelete}>
         <Trash2 className="h-4 w-4" />
