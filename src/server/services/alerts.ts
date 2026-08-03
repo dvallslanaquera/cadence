@@ -29,6 +29,7 @@ export async function runAlertCheck(): Promise<AlertCheckResult> {
   // proof the scheduler is alive.
   await db.settings.update({ where: { id: 1 }, data: { lastAlertCheckAt: now } });
 
+  if (!settings.alertsEnabled) return { sent: false, reason: "alerts disabled" };
   if (!running) return { sent: false, reason: "no unalerted running entry" };
   if (!shouldAlert(running, now, settings.alertAfterHours)) {
     return { sent: false, reason: "under threshold" };

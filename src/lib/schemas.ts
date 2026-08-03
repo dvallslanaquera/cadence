@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { THEME_IDS } from "@/lib/constants";
 
 /** Shared by the route handlers and the forms, so they cannot drift. */
 
@@ -78,6 +79,8 @@ export const settingsUpdateSchema = z.object({
   dailyGoalHours: z.number().min(0).max(24).optional(),
   weeklyChartWeeks: z.number().int().min(1).max(260).optional(),
   alertAfterHours: z.number().int().min(1).max(72).optional(),
+  theme: z.enum([...THEME_IDS] as [string, ...string[]]).optional(),
+  alertsEnabled: z.boolean().optional(),
 });
 
 export type EntryCreateInput = z.input<typeof entryCreateSchema>;

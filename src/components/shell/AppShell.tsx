@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import { BarChart3, CalendarDays, ListTodo, Settings2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { RunningBar } from "@/components/timer/RunningBar";
+import { ThemeSync } from "@/components/settings/ThemeSync";
 
 const tabs = [
   { href: "/", label: "Week", icon: CalendarDays },
@@ -28,6 +29,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   return (
     <div className="flex min-h-screen">
+      <ThemeSync />
       <aside className="sticky top-0 hidden h-screen w-[232px] shrink-0 flex-col border-r border-border bg-surface/60 px-4 py-5 md:flex">
         <Link href="/" className="mb-6 flex items-center gap-2.5 px-2 text-lg font-semibold">
           <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-accent-soft text-accent">

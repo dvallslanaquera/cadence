@@ -447,7 +447,10 @@ underneath, both in the one calendar format the UI uses (`Jul-27 – Aug-2`).
   entry over that exact range and opens the same popover.
 - **Click an existing entry** → the same popover in edit mode: description, project, task,
   tags, start/end time inputs, and the trash icon in its corner. A single click is enough
-  here, because the block is its own target and there is nothing to disambiguate. A running
+  here, because the block is its own target and there is nothing to disambiguate. The block
+  is the popover's *anchor* rather than its trigger, so Radix would treat a press on it as
+  an outside press and dismiss; `EntryBlock` suppresses that, otherwise double-clicking a
+  block tore the editor down and rebuilt it between the two clicks. A running
   block opens the same way even though it cannot be dragged, which is the only route to its
   trash icon. Delete is optimistic with
   an undo toast rather than a confirm dialog — a mis-click costs one click to reverse, and
@@ -485,9 +488,19 @@ about it.
 - **Drag an entry's edges** → resize; **drag its body** → move. Both snap to 5 minutes and
   both are rejected on overlap with the conflicting entry flashed.
 
-**Nothing in the grid waits for the server to draw.** A drag renders from local state, so
-the block tracks the pointer at frame rate; on release the mutation writes the expected
-result into the query cache before the request goes out. A block that snapped back to its
+**Nothing in the grid waits for the server to draw, the editor included.** The id of a new
+entry is minted in the browser (`newEntryId`) and sent with the create, so the popover can
+open on it in the same frame as the double-click and still be pointing at the right row once
+the write lands. Opening it on the server's answer instead cost a round trip *and* the
+refetch behind it, because the real id only arrived with the entries list. Two things follow
+from creating a row the database has not seen yet: a save, a delete or a stop issued while
+the POST is still in the air queues behind it (`afterPendingCreates` in `lib/queries.ts`),
+and the open editor merges the server's version field by field, keeping anything you have
+already typed and taking the rest.
+
+A drag renders from local state, so the block tracks the pointer at frame rate; on release
+the mutation writes the expected result into the query cache before the request goes out.
+A block that snapped back to its
 old position until the PATCH returned would read as lag however fast the server answered.
 The preview is clamped so it can only ever show a shape the server would accept, and a
 rejected edit — an overlap, usually — rolls back and says why. The refetch in `onSettled`
@@ -801,7 +814,9 @@ Flag any of these and I'll change them before writing code:
    case, still recoverable.
 5. **Drag snapping is 5 minutes** (`Alt` for 1-minute). Minute-precision dragging on a
    64px-per-hour grid means a 1px pointer error changes the value.
-6. **Dark mode follows the system**, no manual toggle in v1.
+6. **Theme follows the system by default**, and can be switched in settings to one of
+   five named palettes (Daylight, Paper, Midnight, Slate, Terminal). The choice is stored on
+   the Settings row and applied via `data-theme` on `<html>` before first paint.
 7. **The description field, not the task, is the primary label** on a grid block — task
    link is optional metadata. An entry started from the backlog copies the task name in.
 8. **No idle detection or time rounding rules** (e.g. "round everything to 15 minutes").

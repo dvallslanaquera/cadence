@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Archive, ArchiveRestore, Check, Plus, Trash2 } from "lucide-react";
+import { Archive, ArchiveRestore, Check, Moon, Monitor, Plus, Sun, Trash2 } from "lucide-react";
 import {
   useCreateProject,
   useDeleteProject,
@@ -11,7 +11,7 @@ import {
   useUpdateSettings,
 } from "@/lib/queries";
 import { api } from "@/lib/api";
-import { nextProjectColor } from "@/lib/constants";
+import { nextProjectColor, THEMES } from "@/lib/constants";
 import { cn } from "@/lib/utils";
 import { ColorSwatchPicker } from "@/components/ui/ColorSwatchPicker";
 import {
@@ -52,6 +52,8 @@ export function SettingsView() {
   const [dailyGoalHours, setDailyGoalHours] = useState(8);
   const [weeklyChartWeeks, setWeeklyChartWeeks] = useState(20);
   const [alertAfterHours, setAlertAfterHours] = useState(12);
+  const [alertsEnabled, setAlertsEnabled] = useState(true);
+  const [theme, setTheme] = useState("system");
 
   useEffect(() => {
     if (!settings) return;
@@ -59,7 +61,19 @@ export function SettingsView() {
     setDailyGoalHours(settings.dailyGoalHours);
     setWeeklyChartWeeks(settings.weeklyChartWeeks);
     setAlertAfterHours(settings.alertAfterHours);
+    setAlertsEnabled(settings.alertsEnabled);
+    setTheme(settings.theme);
   }, [settings]);
+
+  function pickTheme(id: string) {
+    setTheme(id);
+    // Apply at once so the recolour is instant; ThemeSync reconciles after the
+    // refetch and keeps it in step with anything that changes the row elsewhere.
+    const el = document.documentElement;
+    if (id === "system") delete el.dataset.theme;
+    else el.dataset.theme = id;
+    updateSettings.mutate({ theme: id });
+  }
 
   if (isLoading || !settings) {
     return (
@@ -73,12 +87,31 @@ export function SettingsView() {
     <div className="max-w-2xl space-y-6 py-4">
       <h1 className="text-lg font-semibold">Settings</h1>
 
+      <ThemeSection theme={theme} onPick={pickTheme} />
+
       <section className="rounded-xl border border-border bg-surface p-4">
         <h2 className="mb-1 text-sm font-semibold">Home time zone</h2>
         <p className="mb-3 text-xs text-fg-muted">
           The week grid always renders in this zone, wherever you are. A 9am block stays a
           9am block, and weekly totals never shift when you travel.
         </p>
+
+        <div className="mb-3 flex items-center justify-between rounded-lg border border-border bg-surface-2 px-3 py-2">
+          <div className="min-w-0">
+            <p className="text-sm font-medium">Runaway-timer alerts</p>
+            <p className="text-xs text-fg-subtle">
+              Email me once when a timer runs past the threshold below.
+            </p>
+          </div>
+          <Switch
+            checked={alertsEnabled}
+            onChange={(next) => {
+              setAlertsEnabled(next);
+              updateSettings.mutate({ alertsEnabled: next });
+            }}
+            label="Runaway-timer alerts"
+          />
+        </div>
 
         <div className="grid gap-3 sm:grid-cols-2">
           <Field label="Time zone">
@@ -118,7 +151,9 @@ export function SettingsView() {
               min={1}
               max={72}
               value={alertAfterHours}
+              disabled={!alertsEnabled}
               onChange={(event) => setAlertAfterHours(Number(event.target.value))}
+              className={cn("disabled:cursor-not-allowed disabled:opacity-50")}
             />
           </Field>
         </div>
@@ -307,5 +342,122 @@ function ProjectSection({ projects }: { projects: Project[] }) {
         </div>
       ) : null}
     </section>
+  );
+}
+
+function ThemeSection({
+  theme,
+  onPick,
+}: {
+  theme: string;
+  onPick: (id: string) => void;
+}) {
+  const system = THEMES.find((t) => t.group === "system")!;
+  const light = THEMES.filter((t) => t.group === "light");
+  const dark = THEMES.filter((t) => t.group === "dark");
+
+  function option(t: {
+    id: string;
+    label: string;
+    swatches: { bg: string; surface: string; accent: string };
+  }) {
+    const selected = t.id === theme;
+    return (
+      <button
+        key={t.id}
+        type="button"
+        onClick={() => onPick(t.id)}
+        className={cn(
+          "flex items-center gap-2.5 rounded-lg border p-2 text-left text-sm transition",
+          selected ? "border-accent ring-1 ring-accent" : "border-border hover:bg-surface-2",
+        )}
+      >
+        <span className="flex -space-x-1.5">
+          <span
+            className="h-4 w-4 rounded-full border border-border"
+            style={{ background: t.swatches.bg }}
+          />
+          <span
+            className="h-4 w-4 rounded-full border border-border"
+            style={{ background: t.swatches.surface }}
+          />
+          <span
+            className="h-4 w-4 rounded-full border border-border"
+            style={{ background: t.swatches.accent }}
+          />
+        </span>
+        <span className="min-w-0 flex-1 truncate">{t.label}</span>
+        {selected ? <Check className="h-3.5 w-3.5 shrink-0 text-accent" /> : null}
+      </button>
+    );
+  }
+
+  return (
+    <section className="rounded-xl border border-border bg-surface p-4">
+      <h2 className="mb-1 text-sm font-semibold">Theme</h2>
+      <p className="mb-3 text-xs text-fg-muted">
+        System follows your OS; the rest force a palette. Picked here, applied at once.
+      </p>
+
+      <div className="space-y-3">
+        <button
+          type="button"
+          onClick={() => onPick(system.id)}
+          className={cn(
+            "flex w-full items-center gap-2.5 rounded-lg border p-2 text-left text-sm transition",
+            theme === system.id ? "border-accent ring-1 ring-accent" : "border-border hover:bg-surface-2",
+          )}
+        >
+          <Monitor className="h-4 w-4 shrink-0 text-fg-muted" />
+          <span className="min-w-0 flex-1 truncate">{system.label}</span>
+          {theme === system.id ? <Check className="h-3.5 w-3.5 shrink-0 text-accent" /> : null}
+        </button>
+
+        <div>
+          <p className="mb-1.5 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-fg-subtle">
+            <Sun className="h-3.5 w-3.5" /> Light
+          </p>
+          <div className="grid gap-2 sm:grid-cols-2">{light.map(option)}</div>
+        </div>
+
+        <div>
+          <p className="mb-1.5 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-fg-subtle">
+            <Moon className="h-3.5 w-3.5" /> Dark
+          </p>
+          <div className="grid gap-2 sm:grid-cols-2">{dark.map(option)}</div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function Switch({
+  checked,
+  onChange,
+  label,
+}: {
+  checked: boolean;
+  onChange: (value: boolean) => void;
+  label: string;
+}) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      aria-label={label}
+      onClick={() => onChange(!checked)}
+      className={cn(
+        "relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition",
+        checked ? "bg-accent" : "bg-border-strong",
+      )}
+    >
+      <span
+        className={cn(
+          "inline-block h-4 w-4 transform rounded-full bg-surface shadow transition",
+          checked ? "translate-x-4" : "translate-x-0.5",
+        )}
+      />
+    </button>
   );
 }

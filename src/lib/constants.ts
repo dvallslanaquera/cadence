@@ -125,3 +125,71 @@ export function nextProjectColor(usedColors: string[]): string {
   const unused = PROJECT_COLORS.find((color) => !usedColors.includes(color));
   return unused ?? PROJECT_COLORS[usedColors.length % PROJECT_COLORS.length];
 }
+
+/**
+ * App themes. The id is stored on the Settings row and written to
+ * `data-theme` on <html>; the CSS in globals.css turns it into a palette.
+ *
+ * `system` sets no attribute, so the OS preference drives the light/dark
+ * fallback in globals.css. The rest force a named palette. `swatches` are the
+ * three colors the settings picker previews with (background, surface,
+ * accent), kept in sync with the CSS by hand.
+ */
+export const THEME_IDS = [
+  "system",
+  "daylight",
+  "paper",
+  "midnight",
+  "slate",
+  "terminal",
+] as const;
+
+export type ThemeId = (typeof THEME_IDS)[number];
+
+export type ThemeGroup = "system" | "light" | "dark";
+
+export interface ThemeOption {
+  id: ThemeId;
+  label: string;
+  group: ThemeGroup;
+  swatches: { bg: string; surface: string; accent: string };
+}
+
+export const THEMES: ThemeOption[] = [
+  {
+    id: "system",
+    label: "System",
+    group: "system",
+    swatches: { bg: "#f8fafc", surface: "#ffffff", accent: "#4f46e5" },
+  },
+  {
+    id: "daylight",
+    label: "Daylight",
+    group: "light",
+    swatches: { bg: "#f8fafc", surface: "#ffffff", accent: "#4f46e5" },
+  },
+  {
+    id: "paper",
+    label: "Paper",
+    group: "light",
+    swatches: { bg: "#faf6ef", surface: "#fffdf8", accent: "#9a3412" },
+  },
+  {
+    id: "midnight",
+    label: "Midnight",
+    group: "dark",
+    swatches: { bg: "#0b1120", surface: "#111827", accent: "#818cf8" },
+  },
+  {
+    id: "slate",
+    label: "Slate",
+    group: "dark",
+    swatches: { bg: "#0f172a", surface: "#1e293b", accent: "#38bdf8" },
+  },
+  {
+    id: "terminal",
+    label: "Terminal",
+    group: "dark",
+    swatches: { bg: "#050805", surface: "#0a0f0a", accent: "#4ade80" },
+  },
+];

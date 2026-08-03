@@ -95,6 +95,8 @@ settings page.
 | `dailyGoalHours` | `float` | `8` | Daily goal, drawn as a reference line |
 | `weeklyChartWeeks` | `int` | `20` | Weeks shown on the weekly chart |
 | `alertAfterHours` | `int` | `12` | Runaway-timer email threshold |
+| `theme` | `string` | `"system"` | Color palette: `system`, `daylight`, `paper`, `midnight`, `slate`, `terminal` |
+| `alertsEnabled` | `bool` | `true` | Whether the runaway-timer email fires at all |
 
 ## Requirements
 

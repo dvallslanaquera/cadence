@@ -97,5 +97,7 @@ model Settings {
   dailyGoalHours   Float     @default(8)
   weeklyChartWeeks Int       @default(20)
   alertAfterHours  Int       @default(12)
+  theme            String    @default("system")
+  alertsEnabled    Boolean   @default(true)
   lastAlertCheckAt DateTime?
 }

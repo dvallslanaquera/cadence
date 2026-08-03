@@ -1,10 +1,13 @@
 @import "tailwindcss";
 
 /*
- * Light and dark are both first-class; the theme follows the system, with no
- * manual toggle in v1 (ARCHITECTURE.md §17).
+ * Light and dark are both first-class. System (no data-theme attribute) follows
+ * the OS via the media query at the bottom; a named theme forces a palette by
+ * setting data-theme on <html>, which wins on attribute specificity. See
+ * ARCHITECTURE.md §17.
  */
-:root {
+:root,
+:root[data-theme="daylight"] {
   --bg: #f8fafc;
   --surface: #ffffff;
   --surface-2: #f1f5f9;
@@ -24,6 +27,98 @@
   --grid-line-strong: #e2e8f0;
   --now: #e11d48;
   --shadow: 0 1px 2px rgb(15 23 42 / 0.06), 0 8px 24px rgb(15 23 42 / 0.08);
+}
+
+:root[data-theme="paper"] {
+  --bg: #faf6ef;
+  --surface: #fffdf8;
+  --surface-2: #f3ece0;
+  --border: #e7ddca;
+  --border-strong: #d6c7ac;
+  --fg: #2b2620;
+  --fg-muted: #7a6f60;
+  --fg-subtle: #a89c88;
+  --accent: #9a3412;
+  --accent-fg: #fffaf3;
+  --accent-soft: #f7ecde;
+  --danger: #b91c1c;
+  --danger-soft: #fdecec;
+  --warning: #b45309;
+  --warning-soft: #fdf3e3;
+  --grid-line: #f1e9db;
+  --grid-line-strong: #e7ddca;
+  --now: #be123c;
+  --shadow: 0 1px 2px rgb(43 38 32 / 0.06), 0 8px 24px rgb(43 38 32 / 0.08);
+}
+
+:root[data-theme="midnight"] {
+  --bg: #0b1120;
+  --surface: #111827;
+  --surface-2: #1a2234;
+  --border: #1f2937;
+  --border-strong: #334155;
+  --fg: #e2e8f0;
+  --fg-muted: #94a3b8;
+  --fg-subtle: #64748b;
+  --accent: #818cf8;
+  --accent-fg: #0b1120;
+  --accent-soft: #1e1b4b;
+  --danger: #f87171;
+  --danger-soft: #2a1414;
+  --warning: #fbbf24;
+  --warning-soft: #2a2113;
+  --grid-line: #151d2c;
+  --grid-line-strong: #1f2937;
+  --now: #fb7185;
+  --shadow: 0 1px 2px rgb(0 0 0 / 0.4), 0 8px 24px rgb(0 0 0 / 0.45);
+}
+
+:root[data-theme="slate"] {
+  --bg: #0f172a;
+  --surface: #1e293b;
+  --surface-2: #273449;
+  --border: #334155;
+  --border-strong: #475569;
+  --fg: #e2e8f0;
+  --fg-muted: #94a3b8;
+  --fg-subtle: #64748b;
+  --accent: #38bdf8;
+  --accent-fg: #0f172a;
+  --accent-soft: #0c2d3f;
+  --danger: #f87171;
+  --danger-soft: #2a1414;
+  --warning: #fbbf24;
+  --warning-soft: #2a2113;
+  --grid-line: #1a2536;
+  --grid-line-strong: #334155;
+  --now: #fb7185;
+  --shadow: 0 1px 2px rgb(0 0 0 / 0.4), 0 8px 24px rgb(0 0 0 / 0.45);
+}
+
+:root[data-theme="terminal"] {
+  --bg: #050805;
+  --surface: #0a0f0a;
+  --surface-2: #0f160f;
+  --border: #1a3a1a;
+  --border-strong: #2f5d2f;
+  --fg: #5ee876;
+  --fg-muted: #3a9a4e;
+  --fg-subtle: #2a6e3a;
+  --accent: #4ade80;
+  --accent-fg: #050805;
+  --accent-soft: #0c2414;
+  --danger: #ff6b6b;
+  --danger-soft: #2a1414;
+  --warning: #ffcc44;
+  --warning-soft: #2a2113;
+  --grid-line: #0f1f0f;
+  --grid-line-strong: #1a3a1a;
+  --now: #ff4444;
+  --shadow: 0 1px 2px rgb(0 0 0 / 0.5), 0 8px 24px rgb(0 0 0 / 0.55);
+}
+
+:root[data-theme="terminal"] body {
+  font-family: ui-monospace, "Cascadia Code", "Source Code Pro", Menlo, Consolas, monospace;
 }
 
 @media (prefers-color-scheme: dark) {

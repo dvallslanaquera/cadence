@@ -6,6 +6,8 @@ export interface SettingsDto {
   dailyGoalHours: number;
   weeklyChartWeeks: number;
   alertAfterHours: number;
+  theme: string;
+  alertsEnabled: boolean;
   lastAlertCheckAt: string | null;
 }
 
@@ -21,12 +23,24 @@ export async function getTimezone(): Promise<string> {
   return (await getSettings()).timezone;
 }
 
+/**
+ * Read-only theme lookup for the root layout, which runs per request. A fresh
+ * database with no Settings row yet falls back to System; the row is created
+ * elsewhere (seed, or the first settings API call) so this never writes.
+ */
+export async function getTheme(): Promise<string> {
+  const settings = await db.settings.findUnique({ where: { id: 1 }, select: { theme: true } });
+  return settings?.theme ?? "system";
+}
+
 export function toSettingsDto(settings: Settings): SettingsDto {
   return {
     timezone: settings.timezone,
     dailyGoalHours: settings.dailyGoalHours,
     weeklyChartWeeks: settings.weeklyChartWeeks,
     alertAfterHours: settings.alertAfterHours,
+    theme: settings.theme,
+    alertsEnabled: settings.alertsEnabled,
     lastAlertCheckAt: settings.lastAlertCheckAt
       ? settings.lastAlertCheckAt.toISOString()
       : null,

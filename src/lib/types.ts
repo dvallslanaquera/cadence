@@ -56,6 +56,8 @@ export interface Settings {
   dailyGoalHours: number;
   weeklyChartWeeks: number;
   alertAfterHours: number;
+  theme: string;
+  alertsEnabled: boolean;
   lastAlertCheckAt: string | null;
 }
 
