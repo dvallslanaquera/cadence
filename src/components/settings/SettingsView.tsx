@@ -11,8 +11,9 @@ import {
   useUpdateSettings,
 } from "@/lib/queries";
 import { api } from "@/lib/api";
-import { nextProjectColor, PROJECT_COLORS } from "@/lib/constants";
+import { nextProjectColor } from "@/lib/constants";
 import { cn } from "@/lib/utils";
+import { ColorSwatchPicker } from "@/components/ui/ColorSwatchPicker";
 import {
   Button,
   ColorDot,
@@ -209,20 +210,8 @@ function ProjectSection({ projects }: { projects: Project[] }) {
           }}
           className="flex-1"
         />
-        <div className="flex items-center gap-1">
-          {PROJECT_COLORS.map((swatch) => (
-            <button
-              key={swatch}
-              type="button"
-              aria-label={`Use colour ${swatch}`}
-              onClick={() => setColor(swatch)}
-              className={cn(
-                "h-7 w-7 rounded-lg border-2 transition",
-                color === swatch ? "border-fg" : "border-transparent",
-              )}
-              style={{ background: swatch }}
-            />
-          ))}
+        <div className="flex items-center">
+          <ColorSwatchPicker color={color} onPick={setColor} />
         </div>
         <Button
           variant="primary"
@@ -258,21 +247,11 @@ function ProjectSection({ projects }: { projects: Project[] }) {
 
             {!project.isSystem ? (
               <>
-                <div className="hidden items-center gap-1 sm:flex">
-                  {PROJECT_COLORS.map((swatch) => (
-                    <button
-                      key={swatch}
-                      type="button"
-                      aria-label={`Recolour ${project.name}`}
-                      onClick={() => updateProject.mutate({ id: project.id, color: swatch })}
-                      className={cn(
-                        "h-4 w-4 rounded border-2 transition",
-                        project.color === swatch ? "border-fg" : "border-transparent",
-                      )}
-                      style={{ background: swatch }}
-                    />
-                  ))}
-                </div>
+                <ColorSwatchPicker
+                  size="sm"
+                  color={project.color}
+                  onPick={(c) => updateProject.mutate({ id: project.id, color: c })}
+                />
 
                 <IconButton
                   label={project.archived ? "Unarchive" : "Archive"}

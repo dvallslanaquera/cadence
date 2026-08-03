@@ -57,19 +57,23 @@ export const DESCRIPTION_SUGGESTION_COUNT = 6;
 export const RUNNING_POLL_MS = 30_000;
 
 /**
- * Project colours: a fixed, validated categorical palette in a fixed order.
+ * Project colours: the picker offers a native colour input plus these twenty
+ * presets. The first eight are a fixed, validated categorical set in a fixed
+ * order — the slots auto-assignment cycles through — and the remaining twelve
+ * fill hue gaps for picking by hand.
  *
- * Slots are assigned in sequence and never cycled into generated hues. Both
- * columns clear the lightness band, chroma floor, CVD separation (protan and
- * deuteran) and the normal-vision floor against this app's own surfaces —
- * verified with the palette validator, not by eye.
+ * The first eight clear the lightness band, chroma floor, CVD separation
+ * (protan and deuteran) and the normal-vision floor against this app's own
+ * surfaces — verified with the palette validator, not by eye:
  *
  *   light on #ffffff : worst adjacent CVD ΔE 9.1, normal-vision ΔE 19.6
  *   dark  on #111827 : worst adjacent CVD ΔE 8.4, normal-vision ΔE 19.3
  *
- * A stored project colour is always the LIGHT hex; `darkVariant` maps it to the
- * step chosen for the dark surface. Never render the light hex on dark — the
- * same hexes fail the dark lightness band.
+ * The extra twelve and any colour chosen through the native input have no
+ * tuned dark step, so `darkVariant` returns them unchanged — the same way a
+ * custom hex is drawn. A stored project colour is always the LIGHT hex; never
+ * render the first eight's light hex on dark, those fail the dark lightness
+ * band.
  */
 export const PROJECT_COLORS = [
   "#2a78d6", // blue
@@ -80,6 +84,18 @@ export const PROJECT_COLORS = [
   "#008300", // green
   "#4a3aa7", // violet
   "#e34948", // red
+  "#0d9488", // teal
+  "#0ea5e9", // sky
+  "#6366f1", // indigo
+  "#c026d3", // fuchsia
+  "#db2777", // pink
+  "#84cc16", // lime
+  "#15803d", // forest
+  "#a16207", // bronze
+  "#92400e", // brown
+  "#475569", // slate
+  "#a8a29e", // stone
+  "#18181b", // ink
 ] as const;
 
 const DARK_STEPS: Record<string, string> = {

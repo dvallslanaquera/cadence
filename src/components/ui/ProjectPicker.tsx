@@ -7,6 +7,7 @@ import { FREQUENT_PROJECT_COUNT, nextProjectColor, PROJECT_COLORS } from "@/lib/
 import { useCreateProject, useFrequentProjectIds, useProjects, useUpdateProject } from "@/lib/queries";
 import { cn } from "@/lib/utils";
 import { Button, ColorDot, Input } from "./primitives";
+import { ColorSwatchPicker } from "./ColorSwatchPicker";
 import type { Project } from "@/lib/types";
 
 /**
@@ -114,7 +115,7 @@ export function ProjectPicker({
           isSelected ? "bg-accent-soft text-accent" : "text-fg hover:bg-surface-2",
         )}
       >
-        <ProjectColorSwatch
+        <ColorSwatchPicker
           color={project.color}
           onPick={(color) => updateProject.mutate({ id: project.id, color })}
         />
@@ -188,7 +189,7 @@ export function ProjectPicker({
           <div className="mt-1 border-t border-border pt-1.5">
             {creating ? (
               <div className="flex items-center gap-1.5 px-0.5 pb-0.5">
-                <ProjectColorSwatch color={newColor} onPick={setNewColor} />
+                <ColorSwatchPicker color={newColor} onPick={setNewColor} />
                 <Input
                   autoFocus
                   value={newName}
@@ -230,63 +231,6 @@ export function ProjectPicker({
                 New project
               </button>
             )}
-          </div>
-        </Popover.Content>
-      </Popover.Portal>
-    </Popover.Root>
-  );
-}
-
-/**
- * A project's color dot as a button. Clicking opens the palette to recolor an
- * existing project or to pick a color for a new one. The click is stopped from
- * bubbling so it never also selects the project, since the swatch shares the
- * row with the project's choose control.
- */
-function ProjectColorSwatch({
-  color,
-  onPick,
-}: {
-  color: string;
-  onPick: (color: string) => void;
-}) {
-  return (
-    <Popover.Root>
-      <Popover.Trigger asChild>
-        <button
-          type="button"
-          aria-label="Change project color"
-          title="Change color"
-          onClick={(event) => event.stopPropagation()}
-          className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full transition hover:bg-surface-2"
-        >
-          <span className="h-3.5 w-3.5 rounded-full" style={{ background: color }} />
-        </button>
-      </Popover.Trigger>
-      <Popover.Portal>
-        <Popover.Content
-          align="start"
-          sideOffset={4}
-          collisionPadding={12}
-          className="z-[70] w-[min(200px,calc(100vw-24px))] rounded-xl border border-border bg-surface p-2 shadow-[var(--shadow)]"
-        >
-          <div className="grid grid-cols-4 gap-1.5">
-            {PROJECT_COLORS.map((swatch) => (
-              <Popover.Close asChild key={swatch}>
-                <button
-                  type="button"
-                  aria-label={`Use ${swatch}`}
-                  onClick={() => onPick(swatch)}
-                  className={cn(
-                    "h-7 w-7 rounded-full transition hover:scale-110",
-                    swatch === color
-                      ? "ring-2 ring-accent ring-offset-2 ring-offset-surface"
-                      : "ring-1 ring-border",
-                  )}
-                  style={{ background: swatch }}
-                />
-              </Popover.Close>
-            ))}
           </div>
         </Popover.Content>
       </Popover.Portal>
