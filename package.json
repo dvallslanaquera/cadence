@@ -14,7 +14,7 @@
     "db:migrate": "prisma migrate dev",
     "db:deploy": "prisma migrate deploy",
     "db:seed": "tsx --env-file-if-exists=.env prisma/seed.ts",
-    "import:toggl": "tsx --env-file-if-exists=.env scripts/import-toggl.ts",
+    "import:csv": "tsx --env-file-if-exists=.env scripts/import-csv.ts",
     "db:studio": "prisma studio",
     "postinstall": "prisma generate"
   },

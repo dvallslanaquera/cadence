@@ -1,8 +1,8 @@
 /**
- * Toggl Detailed-report column layout. See ARCHITECTURE.md §11.
+ * CSV export column layout. See ARCHITECTURE.md §11.
  *
  * A multi-day entry exports as ONE row with different start and end dates —
- * that's what Toggl does, and splitting it would misrepresent the entry.
+ * splitting it would misrepresent the entry.
  */
 import { formatClock, formatDateISO, formatDurationClock, minutesBetween } from "./time";
 

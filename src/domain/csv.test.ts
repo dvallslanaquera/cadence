@@ -60,7 +60,7 @@ describe("entryToCsvRow", () => {
 });
 
 describe("toCsv", () => {
-  it("emits the Toggl header and quotes multi-tag cells", () => {
+  it("emits the CSV header and quotes multi-tag cells", () => {
     const csv = toCsv(
       [
         {

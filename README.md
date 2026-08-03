@@ -11,8 +11,8 @@
 [![Tailwind](https://img.shields.io/badge/Tailwind-v4-38bdf8)](https://tailwindcss.com/)
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue)](./LICENSE)
 
-A single-user time tracker shaped like Toggl. You log hours on a week grid,
-start timers from a task backlog, and read the patterns off a dashboard.
+A single-user time tracker. You log hours on a week grid, start timers from a
+task backlog, and read the patterns off a dashboard.
 
 Stack choices, the data model, domain rules, and the alert system are
 documented in [ARCHITECTURE.md](./ARCHITECTURE.md).

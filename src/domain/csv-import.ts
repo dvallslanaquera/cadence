@@ -1,12 +1,12 @@
 /**
- * Toggl Detailed-report CSV → Cadence entries. The inverse of `csv.ts`.
+ * CSV export → Cadence entries. The inverse of `csv.ts`.
  *
- * Toggl's model is a superset of ours in one direction and a subset in the
+ * The source format is a superset of ours in one direction and a subset in the
  * other. Two mismatches have to be resolved here rather than at the database,
  * because the database answers them with a constraint violation and no context:
  *
- *   - Toggl permits overlapping entries; we forbid them (`no_overlapping_entries`).
- *   - Toggl keeps seconds; we round to the minute and enforce a one-minute floor.
+ *   - The source permits overlapping entries; we forbid them (`no_overlapping_entries`).
+ *   - The source keeps seconds; we round to the minute and enforce a one-minute floor.
  *
  * Everything in this module is pure so the resolution can be dry-run and
  * reported before anything is written. See ARCHITECTURE.md §4 and §11.
@@ -20,7 +20,7 @@ import { minutesBetween, roundToMinute } from "./time";
 // ---------------------------------------------------------------------------
 
 /**
- * Field-level parser. Toggl quotes any description containing a comma, and
+ * Field-level parser. Any description containing a comma is quoted, and
  * descriptions containing newlines do occur, so this cannot be a line split.
  */
 export function parseCsv(text: string): string[][] {
@@ -76,8 +76,8 @@ export function parseCsv(text: string): string[][] {
 }
 
 /**
- * Header-keyed records. Column *order* differs between Toggl plans and our own
- * export is a strict subset of Toggl's columns, so nothing may be positional.
+ * Header-keyed records. Column *order* differs between sources and our own
+ * export is a strict subset, so nothing may be positional.
  */
 export function toRecords(rows: string[][]): Record<string, string>[] {
   if (rows.length === 0) return [];
@@ -102,7 +102,7 @@ const CLOCK = /^(\d{1,2}):(\d{2})(?::(\d{2}))?$/;
 export type DateOrder = "iso" | "dmy" | "mdy";
 
 /**
- * Toggl writes `YYYY-MM-DD` by default but honours a workspace date format, and
+ * A source file may write `YYYY-MM-DD` or a locale slash format, and
  * `03/04/2026` is a different day depending on which. Guessing silently would
  * misfile up to eleven months of history, so an ambiguous file is an error the
  * caller has to resolve with an explicit order.
@@ -123,7 +123,7 @@ export function detectDateOrder(values: string[]): DateOrder | "ambiguous" {
 }
 
 /**
- * Wall-clock date + time in `tz` → the UTC instant. Toggl's CSV carries no
+ * Wall-clock date + time in `tz` → the UTC instant. The CSV carries no
  * offset, so the zone is supplied by the caller and is the single biggest way
  * an import can land hours off.
  */
@@ -178,7 +178,7 @@ export function parseWallClock(
 // Mapping
 // ---------------------------------------------------------------------------
 
-export interface TogglCandidate {
+export interface ImportCandidate {
   /** 1-based row number in the source file, for error reports. */
   line: number;
   description: string;
@@ -196,9 +196,9 @@ export interface RejectedRow {
 }
 
 export interface MapResult {
-  candidates: TogglCandidate[];
+  candidates: ImportCandidate[];
   rejected: RejectedRow[];
-  /** True when the file had no recognisable Toggl columns at all. */
+  /** True when the file had no recognisable columns at all. */
   missingColumns: string[];
 }
 
@@ -209,7 +209,7 @@ export function mapRecords(
   tz: string,
   order: DateOrder,
 ): MapResult {
-  const candidates: TogglCandidate[] = [];
+  const candidates: ImportCandidate[] = [];
   const rejected: RejectedRow[] = [];
 
   if (records.length === 0) return { candidates, rejected, missingColumns: REQUIRED };
@@ -286,7 +286,7 @@ export interface Conflict {
 }
 
 export interface ResolveResult {
-  entries: TogglCandidate[];
+  entries: ImportCandidate[];
   conflicts: Conflict[];
 }
 
@@ -299,14 +299,14 @@ export interface ResolveResult {
  * earlier row truncated below the one-minute floor is dropped instead.
  */
 export function resolveOverlaps(
-  candidates: TogglCandidate[],
+  candidates: ImportCandidate[],
   policy: ConflictPolicy,
 ): ResolveResult {
   const sorted = [...candidates].sort(
     (a, b) => a.startedAt.getTime() - b.startedAt.getTime() || a.line - b.line,
   );
 
-  const entries: TogglCandidate[] = [];
+  const entries: ImportCandidate[] = [];
   const conflicts: Conflict[] = [];
 
   for (const candidate of sorted) {

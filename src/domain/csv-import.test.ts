@@ -7,8 +7,8 @@ import {
   resolveOverlaps,
   toRecords,
   totalMinutes,
-  type TogglCandidate,
-} from "./toggl";
+  type ImportCandidate,
+} from "./csv-import";
 
 const TZ = "Asia/Tokyo";
 
@@ -34,7 +34,7 @@ describe("parseCsv", () => {
     expect(rows[0][0]).toBe("Project");
   });
 
-  it("handles CRLF, which is what Toggl actually emits", () => {
+  it("handles CRLF, which is what CSV exporters emit", () => {
     const rows = parseCsv("a,b\r\n1,2\r\n");
     expect(rows[1]).toEqual(["1", "2"]);
   });
@@ -46,7 +46,7 @@ describe("toRecords", () => {
     expect(records[0]).toEqual({ project: "Alpha", description: "Writing" });
   });
 
-  it("tolerates Toggl's extra columns", () => {
+  it("tolerates extra columns", () => {
     const records = toRecords(
       parseCsv("User,Email,Project,Billable,Amount\nD,d@x.com,Alpha,Yes,10\n"),
     );
@@ -110,7 +110,7 @@ const row = (
   endTime: string,
   tags = "",
 ) =>
-  // Toggl quotes the tag field when it holds more than one tag.
+  // The tag field is quoted when it holds more than one tag.
   `${project},,${description},${startDate},${startTime},${endDate},${endTime},00:00:00,"${tags}"`;
 
 const mapCsv = (...rows: string[]) =>
@@ -156,7 +156,7 @@ describe("mapRecords", () => {
     expect(candidates[0].endedAt.toISOString()).toBe("2026-07-28T17:00:00.000Z");
   });
 
-  it("leaves the project null when Toggl exported no project", () => {
+  it("leaves the project null when the row exported no project", () => {
     const { candidates } = mapCsv(
       row("", "Unfiled", "2026-07-28", "09:00:00", "2026-07-28", "10:00:00"),
     );
@@ -164,7 +164,7 @@ describe("mapRecords", () => {
   });
 });
 
-const candidate = (line: number, start: string, end: string): TogglCandidate => ({
+const candidate = (line: number, start: string, end: string): ImportCandidate => ({
   line,
   description: `row ${line}`,
   projectName: "Alpha",

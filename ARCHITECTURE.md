@@ -1,6 +1,6 @@
 # Cadence — Architecture
 
-A single-user time tracker in the shape of Toggl: a week calendar you log time on, a
+A single-user time tracker: a week calendar you log time on, a
 backlog of tasks you can start a timer from, and a dashboard.
 
 Status: **design proposal, no code written yet.** Read it, mark up anything wrong, and
@@ -46,7 +46,7 @@ From your answers:
 | Overlaps | Not allowed. Starting a timer stops the running one; conflicting manual entries rejected |
 | Sync | Installable PWA, online-only writes, running timer refetches on focus and every 30s |
 | Grid click | Click = start a live timer at that minute; drag = completed entry over the dragged range |
-| CSV | Toggl Detailed-report columns, date-range picker defaulting to the visible week |
+| CSV | export columns, date-range picker defaulting to the visible week |
 | Deletes | Projects archive by default; a real delete reassigns its entries and tasks to Others |
 | Dashboard | Configurable daily goal, drawn as a reference line on the day and week charts |
 
@@ -120,7 +120,7 @@ Railway — noted so we don't rediscover it in production.
 
 ## 4. Data model
 
-Toggl's hierarchy minus the layers a single user has no use for. No `userId` column
+A standard tracker hierarchy minus the layers a single user has no use for. No `userId` column
 anywhere: you are the only user, and a row that always holds the same value is a column
 that lies about the design. If this ever becomes multi-user, that's a migration adding
 `userId` to four tables — cheap, and not worth carrying now.
@@ -574,7 +574,7 @@ tail folds into "Other" rather than inventing hues the palette hasn't validated.
 
 ## 11. CSV export
 
-`GET /api/export.csv?from=…&to=…` streams Toggl Detailed-report columns:
+`GET /api/export.csv?from=…&to=…` streams the export columns:
 
 ```
 Project,Task,Description,Start date,Start time,End date,End time,Duration,Tags
@@ -582,10 +582,10 @@ Others,,Email triage,2026-07-27,09:12,2026-07-27,09:48,00:36:00,"admin"
 ```
 
 Dates and times are rendered in the home time zone; `Duration` is `HH:MM:SS` with
-uncapped hours, which is Toggl's own format (seconds are always `00` — the minimum unit
+uncapped hours (seconds are always `00`; the minimum unit
 here is a minute). Multi-day
-entries export as **one row** with different start and end dates — that's what Toggl does,
-and splitting them would misrepresent the entry. The range picker sits in the week view
+entries export as **one row** with different start and end dates; splitting them
+would misrepresent the entry. The range picker sits in the week view
 header and defaults to the visible week. Streamed rather than buffered so a multi-year
 export doesn't build the whole file in a serverless function's memory.
 
@@ -783,7 +783,7 @@ document.
 | 9 | CSV export | Get the data out |
 | 10 | Mobile layout + PWA polish | Track from the phone |
 
-Milestone 3 is the one that matters — after it the app replaces Toggl for daily use, and
+Milestone 3 is the one that matters. After it the app is ready for daily use, and
 everything after is refinement you can prioritise from experience.
 
 ---
@@ -818,7 +818,7 @@ Flag any of these and I'll change them before writing code:
 
 ## 18. Deliberately out of scope
 
-Not building these unless you say otherwise: multi-user or sharing, Toggl import,
+Not building these unless you say otherwise: multi-user or sharing,
 billable rates and invoicing, native mobile apps, browser-extension or IDE integrations,
 Pomodoro timers, calendar (Google/Outlook) sync, recurring tasks, notifications beyond the
 runaway-timer email, and public REST API tokens.

@@ -1,4 +1,4 @@
-# Drop your Toggl Detailed-report CSV export here.
+# Drop your time-tracking CSV export here.
 #
 # Files in this folder are gitignored - they contain your personal time history.
-# Run:  npm run import:toggl -- imports/your-export.csv
+# Run:  npm run import:csv -- imports/your-export.csv

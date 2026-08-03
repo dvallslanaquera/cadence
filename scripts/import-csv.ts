@@ -1,9 +1,9 @@
 /**
- * Imports a Toggl Detailed-report CSV into Cadence.
+ * Imports a time-tracking CSV into Cadence.
  *
- *   npm run import:toggl -- imports/Toggl_time_entries.csv
- *   npm run import:toggl -- imports/Toggl_time_entries.csv --on-conflict=truncate
- *   npm run import:toggl -- imports/Toggl_time_entries.csv --write
+ *   npm run import:csv -- imports/your-export.csv
+ *   npm run import:csv -- imports/your-export.csv --on-conflict=truncate
+ *   npm run import:csv -- imports/your-export.csv --write
  *
  * DRY RUN BY DEFAULT: without --write it reads the file, resolves everything,
  * prints the report and touches nothing. Read the report before adding --write.
@@ -33,8 +33,8 @@ import {
   totalMinutes,
   type ConflictPolicy,
   type DateOrder,
-  type TogglCandidate,
-} from "../src/domain/toggl";
+  type ImportCandidate,
+} from "../src/domain/csv-import";
 import { nextProjectColor } from "../src/lib/constants";
 import { intervalsOverlap } from "../src/domain/overlap";
 import { formatClock, formatDateISO } from "../src/domain/time";
@@ -58,7 +58,7 @@ function bail(message: string): never {
 }
 
 async function main() {
-  if (!file) bail("Usage: npm run import:toggl -- imports/your-export.csv [--write]");
+  if (!file) bail("Usage: npm run import:csv -- imports/your-export.csv [--write]");
   if (policy !== "skip" && policy !== "truncate") {
     bail(`--on-conflict must be "skip" or "truncate", got "${policy}"`);
   }
@@ -91,8 +91,8 @@ async function main() {
   const mapped = mapRecords(records, tz, order);
   if (mapped.missingColumns.length > 0) {
     bail(
-      `That does not look like a Toggl Detailed report — missing columns: ${mapped.missingColumns.join(", ")}\n` +
-        "  Export from Toggl: Reports → Detailed → Export → CSV.",
+      `That does not look like a CSV export — missing columns: ${mapped.missingColumns.join(", ")}\n` +
+        "  Expected columns: Project, Task, Description, Start date, Start time, End date, End time, Duration, Tags.",
     );
   }
 
@@ -114,7 +114,7 @@ async function main() {
       : [];
 
   const now = new Date();
-  const clashed: TogglCandidate[] = [];
+  const clashed: ImportCandidate[] = [];
   const importable = resolved.filter((candidate) => {
     const hit = existing.some((row) =>
       intervalsOverlap(

@@ -193,7 +193,7 @@ export function formatMinutesAs12Hour(minutes: number): string {
   return `${hour12}:${pad(wrapped % 60)} ${hours < 12 ? "am" : "pm"}`;
 }
 
-/** "HH:MM:SS", hours uncapped. Toggl's duration column format. */
+/** "HH:MM:SS", hours uncapped. The duration column format. */
 export function formatDurationClock(minutes: number): string {
   const total = Math.max(0, Math.round(minutes));
   return `${pad(Math.floor(total / 60))}:${pad(total % 60)}:00`;

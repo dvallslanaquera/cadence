@@ -49,7 +49,7 @@ export function ExportButton({
           className="z-50 w-[min(300px,calc(100vw-24px))] rounded-xl border border-border bg-surface p-3 shadow-[var(--shadow)]"
         >
           <p className="mb-2 text-xs text-fg-muted">
-            Toggl Detailed-report columns. Only completed entries are exported.
+            CSV export columns. Only completed entries are exported.
           </p>
           <div className="grid grid-cols-2 gap-2">
             <Field label="From">

@@ -327,7 +327,7 @@ async function main() {
   );
   const csv = await new Response(stream).text();
   const lines = csv.trim().split("\r\n");
-  ok("header is the Toggl column layout", lines[0].startsWith("Project,Task,Description,"));
+  ok("header is the CSV column layout", lines[0].startsWith("Project,Task,Description,"));
   ok("one data row", lines.length === 2, lines.length);
   ok("wall-clock times are in the home zone", lines[1].includes("09:12"), lines[1]);
   ok("embedded quotes and commas are escaped", lines[1].includes('"Email, ""triage"""'), lines[1]);

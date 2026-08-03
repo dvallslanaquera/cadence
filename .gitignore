@@ -12,6 +12,6 @@ next-env.d.ts
 coverage/
 COMMIT_PLAN.md
 
-# Toggl exports are personal time history — keep them local.
+# CSV exports are personal time history — keep them local.
 imports/*
 !imports/README.md

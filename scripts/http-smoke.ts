@@ -116,7 +116,7 @@ async function main() {
   );
   const csvText = await csv.text();
   ok("CSV export streams with the right headers", csv.headers.get("content-type")?.includes("text/csv") === true);
-  ok("CSV has the Toggl header row", csvText.startsWith("Project,Task,Description,"), csvText.slice(0, 60));
+  ok("CSV has the header row", csvText.startsWith("Project,Task,Description,"), csvText.slice(0, 60));
 
   // Derived from the zone the server reports, not hardcoded: a UTC range that
   // is exactly one week in one zone spans eight local days in another.
