@@ -110,7 +110,7 @@ export async function deleteProject(id: string): Promise<ProjectDeletionImpact> 
     if (project.isSystem) throw new ApiError(400, "The Others project cannot be deleted");
 
     const others = await tx.project.findFirst({ where: { isSystem: true } });
-    if (!others) throw new ApiError(500, 'No "Others" project — run `npm run db:seed`');
+    if (!others) throw new ApiError(500, 'No "Others" project. Run `npm run db:seed`.');
 
     const entries = await tx.timeEntry.updateMany({
       where: { projectId: id },

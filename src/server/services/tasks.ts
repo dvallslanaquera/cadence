@@ -109,7 +109,7 @@ async function resolveProjectId(projectId?: string | null): Promise<string> {
     return project.id;
   }
   const others = await db.project.findFirst({ where: { isSystem: true } });
-  if (!others) throw new ApiError(500, 'No "Others" project — run `npm run db:seed`');
+  if (!others) throw new ApiError(500, 'No "Others" project. Run `npm run db:seed`.');
   return others.id;
 }
 
