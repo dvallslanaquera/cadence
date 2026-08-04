@@ -6,7 +6,12 @@ import {
   type MouseEvent as ReactMouseEvent,
   type PointerEvent as ReactPointerEvent,
 } from "react";
-import { DEFAULT_BLOCK_MINUTES, FINE_SNAP_MINUTES, SNAP_MINUTES } from "@/lib/constants";
+import {
+  CREATE_SNAP_MINUTES,
+  DEFAULT_BLOCK_MINUTES,
+  FINE_SNAP_MINUTES,
+  SNAP_MINUTES,
+} from "@/lib/constants";
 import { intentFromClick, pixelsToMinutes } from "@/domain/layout";
 import { formatDurationHuman, formatMinutesAsClock } from "@/domain/time";
 import { cn } from "@/lib/utils";
@@ -60,15 +65,10 @@ export function DayColumn({
   const dragState = useRef<{ anchorMinutes: number; moved: boolean } | null>(null);
   const [ghost, setGhost] = useState<{ from: number; to: number } | null>(null);
 
-  function minutesAt(clientY: number, altKey: boolean): number {
+  function minutesAt(clientY: number, snapMinutes: number): number {
     const rect = columnRef.current?.getBoundingClientRect();
     if (!rect) return 0;
-    return pixelsToMinutes(
-      clientY - rect.top,
-      pxPerMinute,
-      altKey ? FINE_SNAP_MINUTES : SNAP_MINUTES,
-      GRID_MINUTES,
-    );
+    return pixelsToMinutes(clientY - rect.top, pxPerMinute, snapMinutes, GRID_MINUTES);
   }
 
   function onPointerDown(event: ReactPointerEvent<HTMLDivElement>) {
@@ -77,7 +77,10 @@ export function DayColumn({
     if (event.target !== event.currentTarget) return;
 
     event.currentTarget.setPointerCapture(event.pointerId);
-    dragState.current = { anchorMinutes: minutesAt(event.clientY, event.altKey), moved: false };
+    dragState.current = {
+      anchorMinutes: minutesAt(event.clientY, event.altKey ? FINE_SNAP_MINUTES : SNAP_MINUTES),
+      moved: false,
+    };
     setGhost(null);
   }
 
@@ -85,7 +88,7 @@ export function DayColumn({
     const state = dragState.current;
     if (!state) return;
 
-    const current = minutesAt(event.clientY, event.altKey);
+    const current = minutesAt(event.clientY, event.altKey ? FINE_SNAP_MINUTES : SNAP_MINUTES);
     if (!state.moved && Math.abs(current - state.anchorMinutes) * pxPerMinute < CLICK_THRESHOLD_PX) {
       return;
     }
@@ -125,7 +128,7 @@ export function DayColumn({
     if (event.target !== event.currentTarget) return;
 
     const intent = intentFromClick(
-      minutesAt(event.clientY, event.altKey),
+      minutesAt(event.clientY, CREATE_SNAP_MINUTES),
       segments.map((segment) => ({
         startMinutes: segment.topMinutes,
         endMinutes: segment.bottomMinutes,

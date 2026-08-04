@@ -2,12 +2,14 @@
 
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { ChevronLeft, ChevronRight, Plus } from "lucide-react";
+import { ChevronLeft, ChevronRight, Maximize2, Plus } from "lucide-react";
 import {
   DEFAULT_BLOCK_MINUTES,
   DEFAULT_SCROLL_HOUR,
   fitHourHeight,
   HOUR_HEIGHT_PX,
+  MAX_HOUR_HEIGHT_PX,
+  MIN_HOUR_HEIGHT_PX,
 } from "@/lib/constants";
 import { useMediaQuery, useNow } from "@/lib/hooks";
 import {
@@ -73,6 +75,33 @@ export function WeekView() {
   const [hourHeight, setHourHeight] = useState(HOUR_HEIGHT_PX);
   const pxPerMinute = hourHeight / 60;
   const lastHourHeight = useRef<number | null>(null);
+  // Once the user takes manual control of the zoom, the fit-to-viewport
+  // ResizeObserver stops overriding their choice. A window resize then leaves
+  // the chosen hour height alone instead of snapping back to the fit value.
+  const userZoomed = useRef(false);
+
+  const applyZoom = useCallback((next: number) => {
+    const clamped = Math.min(MAX_HOUR_HEIGHT_PX, Math.max(MIN_HOUR_HEIGHT_PX, next));
+    userZoomed.current = true;
+    setHourHeight(clamped);
+  }, []);
+
+  // Functional delta so the wheel handler, attached once, reads the live height
+  // instead of the value it closed over at mount.
+  const zoomBy = useCallback((delta: number) => {
+    userZoomed.current = true;
+    setHourHeight((h) =>
+      Math.min(MAX_HOUR_HEIGHT_PX, Math.max(MIN_HOUR_HEIGHT_PX, h + delta)),
+    );
+  }, []);
+
+  // Hand control back to the fit-to-viewport rule and re-measure at once, so
+  // the grid returns to a single working day on screen after the user zoomed in.
+  const resetFit = useCallback(() => {
+    userZoomed.current = false;
+    const element = scrollRef.current;
+    if (element && element.clientHeight > 0) setHourHeight(fitHourHeight(element.clientHeight));
+  }, []);
 
   /**
    * Where the grid starts, measured rather than assumed. The chrome above it —
@@ -127,12 +156,31 @@ export function WeekView() {
     const measure = (height: number) => {
       if (height > 0) setHourHeight(fitHourHeight(height));
     };
-    measure(element.clientHeight);
+    if (!userZoomed.current) measure(element.clientHeight);
 
-    const observer = new ResizeObserver((entries) => measure(entries[0].contentRect.height));
+    const observer = new ResizeObserver((entries) => {
+      if (!userZoomed.current) measure(entries[0].contentRect.height);
+    });
     observer.observe(element);
     return () => observer.disconnect();
   }, []);
+
+  // Ctrl+scroll zooms; a plain scroll still pans the grid. React's onWheel is a
+  // passive listener, so preventDefault would be ignored and the page would
+  // scroll along with the zoom. A native non-passive listener on the same
+  // element is the way to swallow the scroll while zooming.
+  useEffect(() => {
+    const element = scrollRef.current;
+    if (!element) return;
+    function onWheel(event: WheelEvent) {
+      if (!event.ctrlKey) return;
+      event.preventDefault();
+      const step = (event.deltaY < 0 ? 1 : -1) * 4;
+      zoomBy(step);
+    }
+    element.addEventListener("wheel", onWheel, { passive: false });
+    return () => element.removeEventListener("wheel", onWheel);
+  }, [zoomBy]);
 
   // Viewport-relative, and only meaningful while the page itself is at the top —
   // which it is by design, since the grid scrolls inside itself.
@@ -438,8 +486,8 @@ export function WeekView() {
           // Below the grid: the hint line, and on mobile the bottom tab bar.
           maxHeight:
             gridTop === null
-              ? "calc(100vh - 260px)"
-              : `calc(100vh - ${Math.round(gridTop) + (isDesktop ? 48 : 132)}px)`,
+              ? "calc(100vh - 296px)"
+              : `calc(100vh - ${Math.round(gridTop) + (isDesktop ? 84 : 168)}px)`,
           minHeight: 360,
         }}
       >
@@ -489,10 +537,29 @@ export function WeekView() {
         </div>
       </div>
 
+      {/* ---- Zoom bar ---- */}
+      <div className="mt-2 flex items-center gap-2">
+        <IconButton label="Fit to viewport" onClick={resetFit}>
+          <Maximize2 className="h-3.5 w-3.5" />
+        </IconButton>
+        <input
+          type="range"
+          aria-label="Grid zoom"
+          min={MIN_HOUR_HEIGHT_PX}
+          max={MAX_HOUR_HEIGHT_PX}
+          step={1}
+          value={hourHeight}
+          onChange={(event) => applyZoom(Number(event.target.value))}
+          className="h-1 flex-1 cursor-pointer accent-accent"
+        />
+        <span className="tabular w-12 shrink-0 text-right text-[10px] text-fg-subtle">
+          {hourHeight}px/h
+        </span>
+      </div>
+
       <p className="mt-2 text-center text-[11px] text-fg-subtle">
-        Double-click to start the timer there · drag for an exact range · a double-click on an
-        earlier day logs a {DEFAULT_BLOCK_MINUTES}-minute block · hold Alt while dragging for
-        minute precision
+        Double-click to start the timer there (snaps to 15 minutes) · drag for an exact range · a double-click on an
+        earlier day logs a {DEFAULT_BLOCK_MINUTES}-minute block · hold Alt while dragging for minute precision · Ctrl+scroll to zoom
       </p>
     </div>
   );

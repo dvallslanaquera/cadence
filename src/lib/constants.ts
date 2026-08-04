@@ -4,12 +4,18 @@
  * day readable on a laptop and a 4K monitor alike. These are the fallback used
  * before the first measurement and the bounds the measured value is clamped to.
  */
-export const HOUR_HEIGHT_PX = 72;
+export const HOUR_HEIGHT_PX = 50;
 export const PX_PER_MINUTE = HOUR_HEIGHT_PX / 60;
 
-/** The working day the grid opens on: 09:00–18:00 fits, the rest scrolls. */
+/** The working day the grid opens on: 09:00 at the top, the rest scrolls. */
 export const DEFAULT_SCROLL_HOUR = 9;
-export const VISIBLE_HOURS = 9;
+/**
+ * How many hours the grid fits into the viewport. Raised from 9 to 13 to bring
+ * the hour lines down by about a third. The grid was too tall, so the working
+ * day now sits in a denser scale with more of the evening visible before the
+ * scroll begins.
+ */
+export const VISIBLE_HOURS = 13;
 
 /**
  * Below ~34px an hour a 15-minute block is under 9px and stops being clickable;
@@ -27,6 +33,14 @@ export function fitHourHeight(viewportPx: number): number {
 /** Drags snap to 5 minutes; hold Alt for 1-minute precision. */
 export const SNAP_MINUTES = 5;
 export const FINE_SNAP_MINUTES = 1;
+
+/**
+ * A double-click to create lands on a 15-minute mark. Coarser than a drag on
+ * purpose: a click picks a slot, not a minute, and 0:00 / 0:15 / 0:30 / 0:45 is
+ * the granularity you actually mean when you point at "mid-morning". Drags keep
+ * their finer snap for an exact range.
+ */
+export const CREATE_SNAP_MINUTES = 15;
 
 /**
  * How long a click-created block is when the click cannot mean "I am doing this

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
+import { memo, useCallback, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 import * as Popover from "@radix-ui/react-popover";
 import { ArrowDown, ArrowUp } from "lucide-react";
 import { FINE_SNAP_MINUTES } from "@/lib/constants";
@@ -36,7 +36,12 @@ interface DragPreview {
   minutes: number;
 }
 
-export function EntryBlock({
+/**
+ * Memoised: a week holds dozens of these, and opening the editor on one of them
+ * re-renders the column. Every prop below is either a value or a callback the
+ * grid keeps stable, so only the block that actually changed does any work.
+ */
+export const EntryBlock = memo(function EntryBlock({
   segment,
   selected,
   onSelect,
@@ -46,6 +51,7 @@ export function EntryBlock({
   pxPerMinute,
   readOnly,
 }: EntryBlockProps) {
+  const anchorRef = useRef<HTMLDivElement>(null);
   const drag = useRef<{
     mode: "move" | "start" | "end";
     originY: number;
@@ -179,6 +185,7 @@ export function EntryBlock({
     >
       <Popover.Anchor asChild>
         <div
+          ref={anchorRef}
           className="absolute px-[2px]"
           style={{
             top,
@@ -276,6 +283,14 @@ export function EntryBlock({
           onEscapeKeyDown={(event) => {
             if (suggestionsOpen.current) event.preventDefault();
           }}
+          onPointerDownOutside={(event) => {
+            // The block is the anchor, not the trigger, so Radix counts a press
+            // on it as an outside press and dismisses. That made a double-click
+            // open the editor, tear it down again on the second press, and
+            // rebuild it on the release, a visible flash on the way to the same
+            // editor you already had.
+            if (anchorRef.current?.contains(event.target as Node)) event.preventDefault();
+          }}
         >
           <EntryPopover
             entry={entry}
@@ -287,4 +302,4 @@ export function EntryBlock({
       </Popover.Portal>
     </Popover.Root>
   );
-}
+});
