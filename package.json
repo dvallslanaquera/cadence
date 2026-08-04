@@ -4,7 +4,9 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
+    "predev": "node scripts/gen-version.mjs",
     "build": "prisma generate && next build",
+    "prebuild": "node scripts/gen-version.mjs",
     "start": "next start",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",

@@ -12,6 +12,7 @@ import {
 } from "@/lib/queries";
 import { api } from "@/lib/api";
 import { nextProjectColor, THEMES } from "@/lib/constants";
+import { APP_BUILD, APP_BUILD_DATE, APP_COMMIT, APP_VERSION } from "@/lib/version";
 import { cn } from "@/lib/utils";
 import { ColorSwatchPicker } from "@/components/ui/ColorSwatchPicker";
 import { useT } from "@/lib/i18n-client";
@@ -208,7 +209,25 @@ export function SettingsView() {
         <h2 className="mb-1 text-sm font-semibold">{t("settings.alerts.title")}</h2>
         <p className="text-xs text-fg-muted">{t("settings.alerts.copy")}</p>
       </section>
+
+      <AboutSection />
     </div>
+  );
+}
+
+function AboutSection() {
+  const { t } = useT();
+  return (
+    <section className="rounded-xl border border-border bg-surface p-4">
+      <h2 className="mb-1 text-sm font-semibold">{t("about.title")}</h2>
+      <p className="text-xs font-medium text-fg-muted">
+        {t("about.version", { version: APP_VERSION, build: APP_BUILD })}
+      </p>
+      <p className="mt-0.5 text-xs text-fg-subtle">
+        {APP_COMMIT || t("about.noCommit")}
+        {APP_BUILD_DATE ? t("about.built", { date: APP_BUILD_DATE }) : ""}
+      </p>
+    </section>
   );
 }
 
