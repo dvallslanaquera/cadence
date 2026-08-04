@@ -14,6 +14,7 @@ import {
   startOfLocalWeek,
 } from "@/domain/time";
 import { Spinner } from "@/components/ui/primitives";
+import { useT } from "@/lib/i18n-client";
 import { HoursPerDayChart } from "./HoursPerDayChart";
 import { HoursPerWeekChart } from "./HoursPerWeekChart";
 import { ProjectDonut } from "./ProjectDonut";
@@ -32,9 +33,10 @@ export function DashboardView() {
   const { data: settings, isLoading: settingsLoading } = useSettings();
   const tz = settings?.timezone ?? "UTC";
   const goalHours = settings?.dailyGoalHours ?? 8;
+  const { t, locale } = useT();
 
   const [weekCount, setWeekCount] = useState<number | null>(null);
-  const [range, setRange] = useState<RangePreset>("month");
+  const [range, setRange] = useState<RangePreset>("week");
 
   const effectiveWeeks = weekCount ?? settings?.weeklyChartWeeks ?? 20;
 
@@ -67,12 +69,12 @@ export function DashboardView() {
   }
 
   const weekdayLabel = (dayKey: string) =>
-    formatWeekdayShort(instantFromLocalParts(dayKey, 12 * 60, tz), tz);
+    formatWeekdayShort(instantFromLocalParts(dayKey, 12 * 60, tz), tz, locale);
 
   return (
     <div className="space-y-4 py-4">
       <div className="flex flex-wrap items-center gap-2">
-        <h1 className="text-lg font-semibold">Dashboard</h1>
+        <h1 className="text-lg font-semibold">{t("dash.heading")}</h1>
         <div className="ml-auto flex items-center gap-1 rounded-lg border border-border bg-surface p-0.5">
           {(Object.keys(RANGE_WEEKS) as RangePreset[]).map((preset) => (
             <button
@@ -85,13 +87,7 @@ export function DashboardView() {
                   : "rounded-md px-2.5 py-1 text-xs text-fg-muted hover:text-fg"
               }
             >
-              {preset === "week"
-                ? "This week"
-                : preset === "month"
-                  ? "4 weeks"
-                  : preset === "quarter"
-                    ? "13 weeks"
-                    : "52 weeks"}
+              {t(`dash.range.${preset}`)}
             </button>
           ))}
         </div>
@@ -133,11 +129,7 @@ export function DashboardView() {
         />
       )}
 
-      <p className="text-xs text-fg-subtle">
-        A running timer counts up to now, so today&apos;s numbers move as you work. Entries
-        that cross midnight are split at the local day boundary, so each day gets its real
-        share of the minutes.
-      </p>
+      <p className="text-xs text-fg-subtle">{t("dash.footer")}</p>
     </div>
   );
 }

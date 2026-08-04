@@ -1,12 +1,18 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { LoginForm } from "./LoginForm";
+import { getLanguageSafe } from "@/server/settings";
+import { metadataTitle, t } from "@/lib/i18n";
 
-export const metadata = { title: "Sign in · Cadence" };
+export async function generateMetadata() {
+  return { title: metadataTitle(await getLanguageSafe(), "page.signin") };
+}
 
 export default async function LoginPage() {
   const session = await auth();
   if (session?.user) redirect("/");
+
+  const lang = await getLanguageSafe();
 
   return (
     <div className="flex min-h-[80vh] items-center justify-center px-6">
@@ -33,12 +39,12 @@ export default async function LoginPage() {
           </svg>
         </div>
 
-        <h1 className="text-center text-xl font-semibold">Cadence</h1>
+        <h1 className="text-center text-xl font-semibold">{t("login.heading", undefined, lang)}</h1>
         <p className="mt-2 text-center text-sm text-fg-muted">
-          This instance is private. Sign in with your email and password.
+          {t("login.subtitle", undefined, lang)}
         </p>
 
-        <LoginForm />
+        <LoginForm lang={lang} />
       </div>
     </div>
   );

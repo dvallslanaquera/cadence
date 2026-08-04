@@ -10,6 +10,7 @@ import { toast } from "sonner";
 import { roundToMinute } from "@/domain/time";
 import { api, ApiClientError } from "./api";
 import { RUNNING_POLL_MS } from "./constants";
+import { t, plural, getCurrentLang } from "./i18n";
 import type {
   DailyStat,
   DescriptionSuggestion,
@@ -55,7 +56,7 @@ function reportError(error: unknown) {
     toast.error(error.message);
     return;
   }
-  toast.error("Something went wrong");
+  toast.error(t("toast.somethingWrong"));
 }
 
 // ---------------------------------------------------------------------------
@@ -583,9 +584,9 @@ export function useDeleteEntry() {
     onSuccess: (_result, entry) => {
       invalidateTimeData(client);
       if (!entry.endedAt) return; // a running entry can't be recreated verbatim
-      toast("Entry deleted", {
+      toast(t("toast.entryDeleted"), {
         action: {
-          label: "Undo",
+          label: t("toast.undo"),
           onClick: () => {
             recreate.mutate({
               description: entry.description,
@@ -649,7 +650,13 @@ export function useDeleteProject() {
       void client.invalidateQueries({ queryKey: keys.projects });
       const { entries, tasks } = result.moved;
       if (entries || tasks) {
-        toast.success(`Moved ${entries} entries and ${tasks} tasks to Others`);
+        const lang = getCurrentLang();
+        toast.success(
+          t("toast.movedToOthers", {
+            entries: plural(lang, entries, "common.entry.one", "common.entry.other"),
+            tasks: plural(lang, tasks, "common.task.one", "common.task.other"),
+          }),
+        );
       }
     },
     onError: reportError,
@@ -783,7 +790,7 @@ export function useUpdateSettings() {
       api.patch<{ settings: Settings }>("/api/settings", input),
     onSuccess: () => {
       void client.invalidateQueries();
-      toast.success("Settings saved");
+      toast.success(t("toast.settingsSaved"));
     },
     onError: reportError,
   });

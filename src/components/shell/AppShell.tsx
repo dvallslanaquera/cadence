@@ -7,12 +7,13 @@ import { BarChart3, CalendarDays, ListTodo, Settings2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { RunningBar } from "@/components/timer/RunningBar";
 import { ThemeSync } from "@/components/settings/ThemeSync";
+import { useT } from "@/lib/i18n-client";
 
 const tabs = [
-  { href: "/", label: "Week", icon: CalendarDays },
-  { href: "/backlog", label: "Backlog", icon: ListTodo },
-  { href: "/dashboard", label: "Dashboard", icon: BarChart3 },
-  { href: "/settings", label: "Settings", icon: Settings2 },
+  { href: "/", nav: "week", icon: CalendarDays },
+  { href: "/backlog", nav: "backlog", icon: ListTodo },
+  { href: "/dashboard", nav: "dashboard", icon: BarChart3 },
+  { href: "/settings", nav: "settings", icon: Settings2 },
 ];
 
 /**
@@ -23,9 +24,12 @@ const tabs = [
  */
 export function AppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
+  const { t } = useT();
 
   // The login page renders standalone — no nav, no timer bar.
   if (pathname === "/login") return <>{children}</>;
+
+  const navLabel = (id: string) => t(`nav.${id}`);
 
   return (
     <div className="flex min-h-screen">
@@ -55,7 +59,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                 )}
               >
                 <Icon className="h-[18px] w-[18px] shrink-0" />
-                {tab.label}
+                {navLabel(tab.nav)}
               </Link>
             );
           })}
@@ -88,7 +92,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                 )}
               >
                 <Icon className="h-5 w-5" />
-                {tab.label}
+                {navLabel(tab.nav)}
               </Link>
             );
           })}

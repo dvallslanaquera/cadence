@@ -1,5 +1,6 @@
 import type { Settings } from "@prisma/client";
 import { db } from "@/server/db";
+import { isLang, type Lang } from "@/lib/i18n";
 
 export interface SettingsDto {
   timezone: string;
@@ -7,6 +8,7 @@ export interface SettingsDto {
   weeklyChartWeeks: number;
   alertAfterHours: number;
   theme: string;
+  language: string;
   alertsEnabled: boolean;
   lastAlertCheckAt: string | null;
 }
@@ -33,6 +35,30 @@ export async function getTheme(): Promise<string> {
   return settings?.theme ?? "system";
 }
 
+/**
+ * Read-only language lookup, mirroring getTheme. The root layout sets
+ * <html lang> from it so the first frame is already localised; the alert
+ * email service reads it to translate the body. Defaults to English.
+ */
+export async function getLanguage(): Promise<string> {
+  const settings = await db.settings.findUnique({ where: { id: 1 }, select: { language: true } });
+  return settings?.language ?? "en";
+}
+
+/**
+ * getLanguage as a validated Lang, defaulting to English on a missing row, an
+ * unreachable database, or a value outside the known set. Used by the page
+ * metadata generators so a bad row never breaks the title.
+ */
+export async function getLanguageSafe(): Promise<Lang> {
+  try {
+    const lang = await getLanguage();
+    return isLang(lang) ? lang : "en";
+  } catch {
+    return "en";
+  }
+}
+
 export function toSettingsDto(settings: Settings): SettingsDto {
   return {
     timezone: settings.timezone,
@@ -40,6 +66,7 @@ export function toSettingsDto(settings: Settings): SettingsDto {
     weeklyChartWeeks: settings.weeklyChartWeeks,
     alertAfterHours: settings.alertAfterHours,
     theme: settings.theme,
+    language: settings.language,
     alertsEnabled: settings.alertsEnabled,
     lastAlertCheckAt: settings.lastAlertCheckAt
       ? settings.lastAlertCheckAt.toISOString()

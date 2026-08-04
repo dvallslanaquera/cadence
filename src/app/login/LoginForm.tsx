@@ -2,19 +2,28 @@
 
 import { useActionState } from "react";
 import { authenticate } from "./actions";
+import { t, type Lang } from "@/lib/i18n";
 
 const field =
   "mt-1 w-full rounded-lg border border-border bg-bg px-3 py-2 text-sm text-fg outline-none transition focus:border-accent";
-const label = "block text-xs font-medium text-fg-muted";
+const labelClass = "block text-xs font-medium text-fg-muted";
 
-export function LoginForm() {
+/** The English literal the server action returns on bad credentials. */
+const INVALID_CREDENTIALS = "Invalid email or password.";
+
+export function LoginForm({ lang }: { lang: Lang }) {
   const [error, formAction, pending] = useActionState(authenticate, undefined);
+
+  // The server action contract stays English; map its known literal to the
+  // translated message so anything else (unexpected) shows as-is.
+  const message =
+    error === INVALID_CREDENTIALS ? t("login.error.invalid", undefined, lang) : error;
 
   return (
     <form action={formAction} className="mt-6 space-y-4">
       <div>
-        <label htmlFor="email" className={label}>
-          Email
+        <label htmlFor="email" className={labelClass}>
+          {t("login.email", undefined, lang)}
         </label>
         <input
           id="email"
@@ -27,8 +36,8 @@ export function LoginForm() {
       </div>
 
       <div>
-        <label htmlFor="password" className={label}>
-          Password
+        <label htmlFor="password" className={labelClass}>
+          {t("login.password", undefined, lang)}
         </label>
         <input
           id="password"
@@ -40,14 +49,14 @@ export function LoginForm() {
         />
       </div>
 
-      {error && <p className="text-sm text-red-500">{error}</p>}
+      {message && <p className="text-sm text-red-500">{message}</p>}
 
       <button
         type="submit"
         disabled={pending}
         className="w-full rounded-lg bg-accent px-4 py-2.5 text-sm font-medium text-accent-fg transition hover:opacity-90 disabled:opacity-60"
       >
-        {pending ? "Signing in…" : "Sign in"}
+        {pending ? t("login.signingIn", undefined, lang) : t("login.signin", undefined, lang)}
       </button>
     </form>
   );

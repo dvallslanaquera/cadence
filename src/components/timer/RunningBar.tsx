@@ -19,6 +19,7 @@ import {
 } from "@/domain/time";
 import { cn } from "@/lib/utils";
 import { ProjectPicker } from "@/components/ui/ProjectPicker";
+import { useT } from "@/lib/i18n-client";
 import type { Entry } from "@/lib/types";
 
 /**
@@ -36,6 +37,7 @@ export function RunningBar() {
   const start = useStartTimer();
   const stop = useStopTimer();
   const now = useNow(1000);
+  const { t } = useT();
 
   const descriptionRef = useRef<HTMLInputElement>(null);
   const entry = data?.entry ?? null;
@@ -74,7 +76,7 @@ export function RunningBar() {
           <RunningFields entry={entry} tz={tz} descriptionRef={descriptionRef} />
         ) : (
           <span className="min-w-0 flex-1 truncate px-1 text-sm text-fg-subtle">
-            No timer running — press play to start one
+            {t("timer.idle")}
           </span>
         )}
 
@@ -95,8 +97,8 @@ export function RunningBar() {
       {/* One button in two states: square stops, triangle starts. */}
       <button
         type="button"
-        aria-label={entry ? "Stop timer" : "Start timer"}
-        title={entry ? "Stop timer" : "Start timer"}
+        aria-label={entry ? t("timer.stop") : t("timer.start")}
+        title={entry ? t("timer.stop") : t("timer.start")}
         onClick={() => (entry ? stop.mutate() : startEmpty())}
         disabled={stop.isPending || start.isPending}
         className={cn(
@@ -135,6 +137,7 @@ function RunningFields({
   descriptionRef: React.RefObject<HTMLInputElement | null>;
 }) {
   const update = useUpdateEntry();
+  const { t } = useT();
 
   const [description, setDescription] = useState<string | null>(null);
   const [startTime, setStartTime] = useState<string | null>(null);
@@ -171,7 +174,7 @@ function RunningFields({
       <input
         ref={descriptionRef}
         value={description ?? entry.description}
-        placeholder="What are you working on?"
+        placeholder={t("timer.placeholder")}
         onFocus={() => setDescription(entry.description)}
         onChange={(event) => setDescription(event.target.value)}
         onBlur={commitDescription}
@@ -198,7 +201,7 @@ function RunningFields({
 
       <input
         type="time"
-        aria-label="Start time"
+        aria-label={t("timer.starttime")}
         value={startTime ?? serverStartTime}
         onFocus={() => setStartTime(serverStartTime)}
         onChange={(event) => setStartTime(event.target.value)}
@@ -247,13 +250,14 @@ function PulseDot({ active, overdue }: { active: boolean; overdue: boolean }) {
  * rather than the day you needed it. See ARCHITECTURE.md §12.
  */
 function StaleSchedulerBadge() {
+  const { t } = useT();
   return (
     <span
-      title="No alert check has run in over 24 hours — the GitHub Actions schedule may be disabled."
+      title={t("alert.stale.title")}
       className="flex shrink-0 items-center gap-1 rounded-lg border border-warning/40 bg-warning-soft px-2 py-1 text-xs font-medium text-warning"
     >
       <AlertTriangle className="h-3.5 w-3.5" />
-      <span className="hidden lg:inline">Alert check stale</span>
+      <span className="hidden lg:inline">{t("alert.stale.badge")}</span>
     </span>
   );
 }

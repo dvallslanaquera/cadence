@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { THEME_IDS } from "@/lib/constants";
+import { LANGUAGE_IDS } from "@/lib/i18n";
 
 /** Shared by the route handlers and the forms, so they cannot drift. */
 
@@ -90,6 +91,7 @@ export const settingsUpdateSchema = z.object({
   weeklyChartWeeks: z.number().int().min(1).max(260).optional(),
   alertAfterHours: z.number().int().min(1).max(72).optional(),
   theme: z.enum([...THEME_IDS] as [string, ...string[]]).optional(),
+  language: z.enum([...LANGUAGE_IDS] as [string, ...string[]]).optional(),
   alertsEnabled: z.boolean().optional(),
 });
 

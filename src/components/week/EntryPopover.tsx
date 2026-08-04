@@ -26,6 +26,7 @@ import { TimeInput } from "@/components/ui/TimeInput";
 import { ClockRangePicker, type ClockHandle } from "@/components/ui/ClockRangePicker";
 import { seriesColor } from "@/lib/constants";
 import { useMediaQuery } from "@/lib/hooks";
+import { useT } from "@/lib/i18n-client";
 import type { Entry } from "@/lib/types";
 
 const MINUTES_PER_DAY = 1440;
@@ -107,6 +108,7 @@ export function EntryPopover({
   const tz = settings?.timezone ?? "UTC";
   const running = entry.endedAt === null;
   const isDark = useMediaQuery("(prefers-color-scheme: dark)");
+  const { t } = useT();
 
   const [form, setForm] = useState(() => entryFields(entry, tz));
   const { description, projectId, tags, startDate, startTime, endTime, endDayOffset } = form;
@@ -244,7 +246,7 @@ export function EntryPopover({
         <DescriptionInput
           autoFocus
           value={description}
-          placeholder="What are you working on?"
+          placeholder={t("timer.placeholder")}
           onChange={(value) => edit({ description: value })}
           onSelectSuggestion={(_description, projectId) => {
             // A null project means the description's usual project was retired;
@@ -256,7 +258,7 @@ export function EntryPopover({
           onOpenChange={onSuggestionsOpenChange}
         />
         <IconButton
-          label="Delete entry"
+          label={t("entry.delete")}
           variant="danger"
           onClick={() => {
             remove.mutate(entry);
@@ -268,7 +270,7 @@ export function EntryPopover({
       </div>
 
       <div className="space-y-2">
-        <Field label="Project" as="div">
+        <Field label={t("entry.project")} as="div">
           <ProjectPicker
             value={projectId}
             onChange={(value) => edit({ projectId: value })}
@@ -289,7 +291,7 @@ export function EntryPopover({
       />
 
       <div className="grid grid-cols-2 gap-2">
-        <Field label="Start">
+        <Field label={t("entry.start")}>
           <TimeInput
             value={startTime}
             fallback={formatClock(new Date(entry.startedAt), tz)}
@@ -297,19 +299,19 @@ export function EntryPopover({
           />
         </Field>
 
-        <Field label="End">
+        <Field label={t("entry.end")}>
           <div className="relative">
             <TimeInput
               value={endTime}
               // Empty means no end: a running entry left alone keeps running.
               fallback={entry.endedAt ? formatClock(new Date(entry.endedAt), tz) : ""}
-              placeholder={running ? "running" : "17:00"}
+              placeholder={running ? t("entry.running") : "17:00"}
               onChange={onEndTimeInput}
             />
             {/* The dial cannot show which day the end landed on, so say it. */}
             {endDayOffset > 0 ? (
               <span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 rounded bg-accent-soft px-1 py-0.5 text-[10px] font-medium text-accent">
-                +{endDayOffset}d
+                +{t("entry.endDayOffset", { n: endDayOffset })}
               </span>
             ) : null}
           </div>
@@ -327,14 +329,14 @@ export function EntryPopover({
           disabled={stop.isPending}
         >
           <Square className="h-3.5 w-3.5 fill-current" />
-          Stop now
+          {t("entry.stopNow")}
         </Button>
       ) : null}
 
-      <Field label="Tags">
+      <Field label={t("entry.tags")}>
         <Input
           value={tags}
-          placeholder="comma, separated"
+          placeholder={t("entry.tagsPlaceholder")}
           onChange={(event) => edit({ tags: event.target.value })}
           onKeyDown={(event) => {
             if (event.key === "Enter") save();
@@ -351,10 +353,10 @@ export function EntryPopover({
         </span>
         <div className="flex gap-1.5">
           <Button size="sm" variant="ghost" onClick={onClose}>
-            Cancel
+            {t("entry.cancel")}
           </Button>
           <Button size="sm" variant="primary" onClick={save} disabled={update.isPending}>
-            Save
+            {t("entry.save")}
           </Button>
         </div>
       </div>

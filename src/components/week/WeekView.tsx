@@ -39,6 +39,7 @@ import {
   weekStartFromKey,
 } from "@/domain/time";
 import { cn, newEntryId } from "@/lib/utils";
+import { useT } from "@/lib/i18n-client";
 import { Button, IconButton, Spinner } from "@/components/ui/primitives";
 import type { Task } from "@/lib/types";
 import { DayColumn } from "./DayColumn";
@@ -59,6 +60,7 @@ export function WeekView() {
   const searchParams = useSearchParams();
   const { data: settings } = useSettings();
   const tz = settings?.timezone ?? "UTC";
+  const { t, locale } = useT();
 
   const now = useNow(30_000);
   const isDesktop = useMediaQuery("(min-width: 768px)");
@@ -359,31 +361,31 @@ export function WeekView() {
       {/* ---- Header ---- */}
       <div className="mb-3 flex flex-wrap items-center gap-2">
         <div className="flex items-center gap-1">
-          <IconButton label="Previous week" onClick={() => goToWeek(-1)}>
+          <IconButton label={t("week.prev")} onClick={() => goToWeek(-1)}>
             <ChevronLeft className="h-4 w-4" />
           </IconButton>
 
           {/* The week you are on sits between the arrows that change it. */}
           <div className="w-[112px] shrink-0 text-center leading-tight">
             <div className="tabular text-sm font-semibold">
-              W{isoWeekNumber(weekStart, tz)}
+              {t("week.weekPrefix")}{isoWeekNumber(weekStart, tz)}{t("week.weekSuffix")}
             </div>
             <div className="tabular text-[10px] text-fg-subtle">
-              {formatRangeLabel(weekStart, weekEnd, tz)}
+              {formatRangeLabel(weekStart, weekEnd, tz, locale)}
             </div>
           </div>
 
-          <IconButton label="Next week" onClick={() => goToWeek(1)}>
+          <IconButton label={t("week.next")} onClick={() => goToWeek(1)}>
             <ChevronRight className="h-4 w-4" />
           </IconButton>
           <Button size="sm" variant="ghost" onClick={goToToday}>
-            Today
+            {t("week.today")}
           </Button>
         </div>
 
         <div className="min-w-0">
           <h1 className="tabular truncate text-base font-semibold text-fg">
-            {formatDurationHuman(weekTotal)} tracked
+            {t("week.tracked", { n: formatDurationHuman(weekTotal) })}
           </h1>
           <p className="tabular text-xs text-fg-muted">{isoWeekYear(weekStart, tz)}</p>
         </div>
@@ -392,7 +394,7 @@ export function WeekView() {
           <ExportButton weekStart={weekStart} weekEnd={weekEnd} tz={tz} />
           <Button size="sm" variant="primary" onClick={() => quickStart()}>
             <Plus className="h-3.5 w-3.5" />
-            <span className="hidden sm:inline">Start timer</span>
+            <span className="hidden sm:inline">{t("week.startTimer")}</span>
           </Button>
         </div>
       </div>
@@ -417,7 +419,7 @@ export function WeekView() {
                 )}
               >
                 <span className="block text-[10px] uppercase">
-                  {formatWeekdayShort(day, tz).slice(0, 1)}
+                  {formatWeekdayShort(day, tz, locale).slice(0, 1)}
                 </span>
                 <span className="block text-sm font-semibold">
                   {formatDayOfMonth(day, tz)}
@@ -450,7 +452,7 @@ export function WeekView() {
                     isToday ? "text-accent" : "text-fg-muted",
                   )}
                 >
-                  {formatWeekdayShort(day, tz)}
+                  {formatWeekdayShort(day, tz, locale)}
                 </span>
                 <span
                   className={cn(
@@ -539,12 +541,12 @@ export function WeekView() {
 
       {/* ---- Zoom bar ---- */}
       <div className="mt-2 flex items-center gap-2">
-        <IconButton label="Fit to viewport" onClick={resetFit}>
+        <IconButton label={t("week.fit")} onClick={resetFit}>
           <Maximize2 className="h-3.5 w-3.5" />
         </IconButton>
         <input
           type="range"
-          aria-label="Grid zoom"
+          aria-label={t("week.zoom")}
           min={MIN_HOUR_HEIGHT_PX}
           max={MAX_HOUR_HEIGHT_PX}
           step={1}
@@ -553,13 +555,12 @@ export function WeekView() {
           className="h-1 flex-1 cursor-pointer accent-accent"
         />
         <span className="tabular w-12 shrink-0 text-right text-[10px] text-fg-subtle">
-          {hourHeight}px/h
+          {t("week.pxPerHour", { n: hourHeight })}
         </span>
       </div>
 
       <p className="mt-2 text-center text-[11px] text-fg-subtle">
-        Double-click to start the timer there (snaps to 15 minutes) · drag for an exact range · a double-click on an
-        earlier day logs a {DEFAULT_BLOCK_MINUTES}-minute block · hold Alt while dragging for minute precision · Ctrl+scroll to zoom
+        {t("week.hint", { block: DEFAULT_BLOCK_MINUTES })}
       </p>
     </div>
   );

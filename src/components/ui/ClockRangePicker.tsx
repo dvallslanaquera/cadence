@@ -4,6 +4,7 @@ import { useRef, useState, type KeyboardEvent, type PointerEvent as ReactPointer
 import { FINE_SNAP_MINUTES, SNAP_MINUTES } from "@/lib/constants";
 import { formatDurationHuman, formatMinutesAs12Hour } from "@/domain/time";
 import { cn, withAlpha } from "@/lib/utils";
+import { useT } from "@/lib/i18n-client";
 
 /**
  * A 12-hour dial for editing a time range by dragging, the way a wall clock
@@ -94,6 +95,7 @@ export function ClockRangePicker({
   const [active, setActive] = useState<ClockHandle | null>(null);
   /** Which handle the AM/PM buttons act on. */
   const [editing, setEditing] = useState<ClockHandle>("start");
+  const { t } = useT();
 
   const running = endMinutes === null;
   const span = spanMinutes ?? daySpan(startMinutes, endMinutes ?? startMinutes);
@@ -179,7 +181,7 @@ export function ClockRangePicker({
           viewBox={`0 0 ${SIZE} ${SIZE}`}
           className="h-44 w-44 touch-none select-none overflow-visible"
           role="group"
-          aria-label="Time range dial"
+          aria-label={t("dial.aria")}
         >
           {/* Track */}
           <circle
@@ -257,7 +259,7 @@ export function ClockRangePicker({
             strokeWidth={3.5}
             tabIndex={0}
             role="slider"
-            aria-label="Start time"
+            aria-label={t("dial.start")}
             aria-valuemin={0}
             aria-valuemax={MINUTES_PER_DAY - 1}
             aria-valuenow={startMinutes}
@@ -284,7 +286,7 @@ export function ClockRangePicker({
               strokeWidth={2.5}
               tabIndex={0}
               role="slider"
-              aria-label="End time"
+              aria-label={t("dial.end")}
               aria-valuemin={0}
               aria-valuemax={MINUTES_PER_DAY - 1}
               aria-valuenow={endMinutes as number}
@@ -305,19 +307,22 @@ export function ClockRangePicker({
             middle stays out of the way of a handle dragged near it. */}
         <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-1">
           <span className="tabular text-[15px] font-semibold leading-none text-fg">
-            {running ? "running" : formatDurationHuman(span)}
+            {running ? t("entry.running") : formatDurationHuman(span)}
           </span>
 
           <div className="pointer-events-auto flex overflow-hidden rounded-md border border-border">
             {([0, MINUTES_PER_HALF_DAY] as const).map((half) => {
               const selected = meridiemOf(editingMinutes) === half;
-              const label = half === 0 ? "AM" : "PM";
+              const label = half === 0 ? t("dial.am") : t("dial.pm");
               return (
                 <button
-                  key={label}
+                  key={half}
                   type="button"
                   aria-pressed={selected}
-                  aria-label={`${label}, ${editingHandle} time`}
+                  aria-label={t("dial.handleLabel", {
+                    label,
+                    handle: t(editingHandle === "start" ? "dial.handleStart" : "dial.handleEnd"),
+                  })}
                   onClick={() => setMeridiem(half)}
                   className={cn(
                     "px-2 py-0.5 text-[10px] font-semibold leading-none transition",
@@ -333,7 +338,9 @@ export function ClockRangePicker({
           </div>
 
           <span className="text-[9px] leading-none text-fg-subtle">
-            {running ? "start" : `${editingHandle} time`}
+            {running
+              ? t("dial.handleStart")
+              : t(editingHandle === "start" ? "dial.handleStart" : "dial.handleEnd")}
           </span>
         </div>
       </div>
@@ -343,7 +350,9 @@ export function ClockRangePicker({
         {running ? "" : ` – ${formatMinutesAs12Hour(endMinutes as number)}`}
       </p>
       <p className="mt-0.5 text-[10px] text-fg-subtle">
-        Drag the handles · AM/PM moves the {editingHandle} · hold Alt for 1-minute steps
+        {t("dial.hint", {
+          handle: t(editingHandle === "start" ? "dial.handleStart" : "dial.handleEnd"),
+        })}
       </p>
     </div>
   );

@@ -2,6 +2,7 @@
 
 import type { ReactNode } from "react";
 import { cn } from "@/lib/utils";
+import { useT } from "@/lib/i18n-client";
 
 export function Panel({
   title,
@@ -19,6 +20,7 @@ export function Panel({
   table?: ReactNode;
   className?: string;
 }) {
+  const { t } = useT();
   return (
     <section
       className={cn("rounded-xl border border-border bg-surface p-4", className)}
@@ -36,7 +38,7 @@ export function Panel({
       {table ? (
         <details className="mt-3 border-t border-border pt-2">
           <summary className="cursor-pointer text-xs text-fg-muted hover:text-fg">
-            Show the numbers
+            {t("panel.showNumbers")}
           </summary>
           <div className="mt-2 overflow-x-auto">{table}</div>
         </details>

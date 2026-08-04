@@ -3,7 +3,8 @@ import "./globals.css";
 import { Providers } from "./providers";
 import { AppShell } from "@/components/shell/AppShell";
 import { ServiceWorker } from "@/components/shell/ServiceWorker";
-import { getTheme } from "@/server/settings";
+import { getLanguage, getTheme } from "@/server/settings";
+import { isLang } from "@/lib/i18n";
 
 // The theme lives in the Settings row and changes per user, so the layout must
 // render per request. Without this, Next prerenders the pages at build time and
@@ -42,8 +43,16 @@ export default async function RootLayout({ children }: { children: React.ReactNo
     // leave System
   }
 
+  let language = "en";
+  try {
+    const lang = await getLanguage();
+    if (isLang(lang)) language = lang;
+  } catch {
+    // leave English
+  }
+
   return (
-    <html lang="en" data-theme={theme === "system" ? undefined : theme}>
+    <html lang={language} data-theme={theme === "system" ? undefined : theme}>
       <body className="min-h-full bg-bg text-fg">
         <Providers>
           <AppShell>{children}</AppShell>

@@ -8,6 +8,7 @@ import { useCreateProject, useFrequentProjectIds, useProjects, useUpdateProject 
 import { cn } from "@/lib/utils";
 import { Button, ColorDot, Input } from "./primitives";
 import { ColorSwatchPicker } from "./ColorSwatchPicker";
+import { useT } from "@/lib/i18n-client";
 import type { Project } from "@/lib/types";
 
 /**
@@ -46,6 +47,7 @@ export function ProjectPicker({
   const { data: frequentIds } = useFrequentProjectIds();
   const createProject = useCreateProject();
   const updateProject = useUpdateProject();
+  const { t } = useT();
 
   const [open, setOpen] = useState(false);
   const [creating, setCreating] = useState(false);
@@ -167,7 +169,7 @@ export function ProjectPicker({
           {frequent.length > 0 ? (
             <>
               <p className="px-2 pb-1 pt-1 text-[10px] font-semibold uppercase tracking-wide text-fg-subtle">
-                Frequent
+                {t("project.frequent")}
               </p>
               {frequent.map(row)}
             </>
@@ -177,7 +179,7 @@ export function ProjectPicker({
             <>
               {frequent.length > 0 ? (
                 <p className="mt-1 border-t border-border px-2 pb-1 pt-2 text-[10px] font-semibold uppercase tracking-wide text-fg-subtle">
-                  All projects
+                  {t("project.all")}
                 </p>
               ) : null}
               <div ref={listRef} className="scroll-thin max-h-44 overflow-y-auto">
@@ -193,7 +195,7 @@ export function ProjectPicker({
                 <Input
                   autoFocus
                   value={newName}
-                  placeholder="Project name"
+                  placeholder={t("project.namePlaceholder")}
                   maxLength={80}
                   className="h-8 flex-1 text-sm"
                   onChange={(event) => setNewName(event.target.value)}
@@ -215,7 +217,7 @@ export function ProjectPicker({
                   onClick={create}
                   disabled={!newName.trim() || createProject.isPending}
                 >
-                  Add
+                  {t("project.add")}
                 </Button>
               </div>
             ) : (
@@ -228,7 +230,7 @@ export function ProjectPicker({
                 className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm text-fg-muted transition hover:bg-surface-2 hover:text-fg"
               >
                 <Plus className="h-3.5 w-3.5" />
-                New project
+                {t("project.newProject")}
               </button>
             )}
           </div>

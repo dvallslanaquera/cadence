@@ -15,6 +15,7 @@ import {
 import { formatDurationHuman, minutesToHours } from "@/domain/time";
 import { axisTick, useChartTheme } from "./chartTheme";
 import { ChartTooltip, DataTable, Panel } from "./Panel";
+import { useT } from "@/lib/i18n-client";
 import type { DailyStat } from "@/lib/types";
 
 /**
@@ -32,6 +33,7 @@ export function HoursPerDayChart({
   weekdayLabel: (dayKey: string) => string;
 }) {
   const theme = useChartTheme();
+  const { t } = useT();
 
   const data = days.map((day) => {
     const hours = minutesToHours(day.minutes);
@@ -48,11 +50,11 @@ export function HoursPerDayChart({
 
   return (
     <Panel
-      title="Hours per day"
-      subtitle={`Goal ${goalHours}h · dashed line`}
+      title={t("chart.perDay.title")}
+      subtitle={t("chart.perDay.subtitle", { goal: goalHours })}
       table={
         <DataTable
-          head={["Day", "Tracked", "vs goal"]}
+          head={[t("chart.perDay.col.day"), t("chart.perDay.col.tracked"), t("chart.perDay.col.vsgoal")]}
           rows={data.map((d) => [
             d.label,
             formatDurationHuman(d.minutes),
@@ -89,12 +91,12 @@ export function HoursPerDayChart({
                     label={point.day}
                     rows={[
                       {
-                        name: "Tracked",
+                        name: t("chart.perDay.col.tracked"),
                         value: formatDurationHuman(point.minutes),
                         color: theme.primary,
                       },
                       {
-                        name: "vs goal",
+                        name: t("chart.perDay.col.vsgoal"),
                         value: `${point.delta >= 0 ? "+" : ""}${point.delta}h`,
                       },
                     ]}

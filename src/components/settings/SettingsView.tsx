@@ -14,6 +14,8 @@ import { api } from "@/lib/api";
 import { nextProjectColor, THEMES } from "@/lib/constants";
 import { cn } from "@/lib/utils";
 import { ColorSwatchPicker } from "@/components/ui/ColorSwatchPicker";
+import { useT } from "@/lib/i18n-client";
+import { LANGUAGES } from "@/lib/i18n";
 import {
   Button,
   ColorDot,
@@ -47,6 +49,7 @@ export function SettingsView() {
   const { data: settings, isLoading } = useSettings();
   const { data: projects } = useProjects(true);
   const updateSettings = useUpdateSettings();
+  const { t } = useT();
 
   const [timezone, setTimezone] = useState("");
   const [dailyGoalHours, setDailyGoalHours] = useState(8);
@@ -54,6 +57,7 @@ export function SettingsView() {
   const [alertAfterHours, setAlertAfterHours] = useState(12);
   const [alertsEnabled, setAlertsEnabled] = useState(true);
   const [theme, setTheme] = useState("system");
+  const [language, setLanguage] = useState("en");
 
   useEffect(() => {
     if (!settings) return;
@@ -63,6 +67,7 @@ export function SettingsView() {
     setAlertAfterHours(settings.alertAfterHours);
     setAlertsEnabled(settings.alertsEnabled);
     setTheme(settings.theme);
+    setLanguage(settings.language);
   }, [settings]);
 
   function pickTheme(id: string) {
@@ -85,23 +90,37 @@ export function SettingsView() {
 
   return (
     <div className="max-w-2xl space-y-6 py-4">
-      <h1 className="text-lg font-semibold">Settings</h1>
+      <h1 className="text-lg font-semibold">{t("settings.heading")}</h1>
 
       <ThemeSection theme={theme} onPick={pickTheme} />
 
       <section className="rounded-xl border border-border bg-surface p-4">
-        <h2 className="mb-1 text-sm font-semibold">Home time zone</h2>
-        <p className="mb-3 text-xs text-fg-muted">
-          The week grid always renders in this zone, wherever you are. A 9am block stays a
-          9am block, and weekly totals never shift when you travel.
-        </p>
+        <h2 className="mb-1 text-sm font-semibold">{t("settings.language")}</h2>
+        <Field label={t("settings.language")}>
+          <Select
+            value={language}
+            onChange={(event) => {
+              setLanguage(event.target.value);
+              updateSettings.mutate({ language: event.target.value });
+            }}
+          >
+            {LANGUAGES.map((lang) => (
+              <option key={lang.id} value={lang.id}>
+                {lang.label}
+              </option>
+            ))}
+          </Select>
+        </Field>
+      </section>
+
+      <section className="rounded-xl border border-border bg-surface p-4">
+        <h2 className="mb-1 text-sm font-semibold">{t("settings.timezone.title")}</h2>
+        <p className="mb-3 text-xs text-fg-muted">{t("settings.timezone.copy")}</p>
 
         <div className="mb-3 flex items-center justify-between rounded-lg border border-border bg-surface-2 px-3 py-2">
           <div className="min-w-0">
-            <p className="text-sm font-medium">Runaway-timer alerts</p>
-            <p className="text-xs text-fg-subtle">
-              Email me once when a timer runs past the threshold below.
-            </p>
+            <p className="text-sm font-medium">{t("settings.alerts.row")}</p>
+            <p className="text-xs text-fg-subtle">{t("settings.alerts.rowHint")}</p>
           </div>
           <Switch
             checked={alertsEnabled}
@@ -109,12 +128,12 @@ export function SettingsView() {
               setAlertsEnabled(next);
               updateSettings.mutate({ alertsEnabled: next });
             }}
-            label="Runaway-timer alerts"
+            label={t("settings.alerts.row")}
           />
         </div>
 
         <div className="grid gap-3 sm:grid-cols-2">
-          <Field label="Time zone">
+          <Field label={t("settings.field.timezone")}>
             <Select value={timezone} onChange={(event) => setTimezone(event.target.value)}>
               {timezoneOptions(settings.timezone).map((zone) => (
                 <option key={zone} value={zone}>
@@ -124,7 +143,7 @@ export function SettingsView() {
             </Select>
           </Field>
 
-          <Field label="Daily goal (hours)">
+          <Field label={t("settings.field.dailyGoal")}>
             <Input
               type="number"
               min={0}
@@ -135,7 +154,7 @@ export function SettingsView() {
             />
           </Field>
 
-          <Field label="Weeks in the weekly chart">
+          <Field label={t("settings.field.weeks")}>
             <Input
               type="number"
               min={1}
@@ -145,7 +164,7 @@ export function SettingsView() {
             />
           </Field>
 
-          <Field label="Email me if a timer runs past (hours)">
+          <Field label={t("settings.field.alertAfter")}>
             <Input
               type="number"
               min={1}
@@ -172,13 +191,13 @@ export function SettingsView() {
             disabled={updateSettings.isPending}
           >
             <Check className="h-4 w-4" />
-            Save
+            {t("settings.save")}
           </Button>
           <span className="text-xs text-fg-subtle">
-            Last alert check:{" "}
+            {t("settings.lastCheck")}
             {settings.lastAlertCheckAt
               ? new Date(settings.lastAlertCheckAt).toLocaleString()
-              : "never — the scheduled workflow has not run yet"}
+              : t("settings.never")}
           </span>
         </div>
       </section>
@@ -186,13 +205,8 @@ export function SettingsView() {
       <ProjectSection projects={projects ?? []} />
 
       <section className="rounded-xl border border-border bg-surface p-4">
-        <h2 className="mb-1 text-sm font-semibold">Runaway timer alert</h2>
-        <p className="text-xs text-fg-muted">
-          Nothing truncates a timer. A GitHub Actions schedule pings the app every 15
-          minutes; if an entry has been running past the threshold above, you get one email
-          — one per entry, ever, so a timer left running over a weekend does not send
-          hundreds. The timer keeps running until you stop it.
-        </p>
+        <h2 className="mb-1 text-sm font-semibold">{t("settings.alerts.title")}</h2>
+        <p className="text-xs text-fg-muted">{t("settings.alerts.copy")}</p>
       </section>
     </div>
   );
@@ -202,6 +216,7 @@ function ProjectSection({ projects }: { projects: Project[] }) {
   const createProject = useCreateProject();
   const updateProject = useUpdateProject();
   const deleteProject = useDeleteProject();
+  const { t, plural } = useT();
 
   const [name, setName] = useState("");
   const [color, setColor] = useState(() => nextProjectColor([]));
@@ -227,16 +242,13 @@ function ProjectSection({ projects }: { projects: Project[] }) {
 
   return (
     <section className="rounded-xl border border-border bg-surface p-4">
-      <h2 className="mb-1 text-sm font-semibold">Projects</h2>
-      <p className="mb-3 text-xs text-fg-muted">
-        Archiving hides a project from the pickers but keeps its history. Deleting moves its
-        entries and tasks to Others — time data is never destroyed.
-      </p>
+      <h2 className="mb-1 text-sm font-semibold">{t("projects.title")}</h2>
+      <p className="mb-3 text-xs text-fg-muted">{t("projects.copy")}</p>
 
       <div className="mb-4 flex flex-col gap-2 sm:flex-row">
         <Input
           value={name}
-          placeholder="New project name"
+          placeholder={t("projects.namePlaceholder")}
           onChange={(event) => setName(event.target.value)}
           onKeyDown={(event) => {
             if (event.key === "Enter" && name.trim()) {
@@ -256,7 +268,7 @@ function ProjectSection({ projects }: { projects: Project[] }) {
           }
         >
           <Plus className="h-4 w-4" />
-          Add
+          {t("projects.add")}
         </Button>
       </div>
 
@@ -273,10 +285,10 @@ function ProjectSection({ projects }: { projects: Project[] }) {
             <span className="min-w-0 flex-1 truncate text-sm">
               {project.name}
               {project.isSystem ? (
-                <span className="ml-2 text-xs text-fg-subtle">system default</span>
+                <span className="ml-2 text-xs text-fg-subtle">{t("projects.systemDefault")}</span>
               ) : null}
               {project.archived ? (
-                <span className="ml-2 text-xs text-fg-subtle">archived</span>
+                <span className="ml-2 text-xs text-fg-subtle">{t("projects.archived")}</span>
               ) : null}
             </span>
 
@@ -289,7 +301,7 @@ function ProjectSection({ projects }: { projects: Project[] }) {
                 />
 
                 <IconButton
-                  label={project.archived ? "Unarchive" : "Archive"}
+                  label={project.archived ? t("projects.unarchive") : t("projects.archive")}
                   onClick={() =>
                     updateProject.mutate({ id: project.id, archived: !project.archived })
                   }
@@ -302,7 +314,7 @@ function ProjectSection({ projects }: { projects: Project[] }) {
                 </IconButton>
 
                 <IconButton
-                  label="Delete project"
+                  label={t("projects.delete")}
                   variant="danger"
                   onClick={() => void confirmDelete(project)}
                 >
@@ -317,16 +329,26 @@ function ProjectSection({ projects }: { projects: Project[] }) {
       {pendingDelete ? (
         <div className="mt-3 rounded-lg border border-danger/40 bg-danger-soft p-3">
           <p className="text-sm font-medium text-danger">
-            Delete “{pendingDelete.project.name}”?
+            {t("projects.deleteTitle", { name: pendingDelete.project.name })}
           </p>
           <p className="mt-1 text-xs text-fg-muted">
-            {pendingDelete.entries} time {pendingDelete.entries === 1 ? "entry" : "entries"} and{" "}
-            {pendingDelete.tasks} {pendingDelete.tasks === 1 ? "task" : "tasks"} will move to
-            Others. No time is lost.
+            {plural(
+              pendingDelete.entries,
+              "projects.deleteBody.one",
+              "projects.deleteBody.other",
+              {
+                entries: plural(
+                  pendingDelete.entries,
+                  "common.entry.one",
+                  "common.entry.other",
+                ),
+                tasks: plural(pendingDelete.tasks, "common.task.one", "common.task.other"),
+              },
+            )}
           </p>
           <div className="mt-2 flex gap-2">
             <Button size="sm" variant="ghost" onClick={() => setPendingDelete(null)}>
-              Cancel
+              {t("projects.cancel")}
             </Button>
             <Button
               size="sm"
@@ -336,7 +358,7 @@ function ProjectSection({ projects }: { projects: Project[] }) {
                 setPendingDelete(null);
               }}
             >
-              Delete and reassign
+              {t("projects.deleteReassign")}
             </Button>
           </div>
         </div>
@@ -352,21 +374,22 @@ function ThemeSection({
   theme: string;
   onPick: (id: string) => void;
 }) {
-  const system = THEMES.find((t) => t.group === "system")!;
-  const light = THEMES.filter((t) => t.group === "light");
-  const dark = THEMES.filter((t) => t.group === "dark");
+  const { t } = useT();
+  const system = THEMES.find((th) => th.group === "system")!;
+  const light = THEMES.filter((th) => th.group === "light");
+  const dark = THEMES.filter((th) => th.group === "dark");
 
-  function option(t: {
+  function option(th: {
     id: string;
     label: string;
     swatches: { bg: string; surface: string; accent: string };
   }) {
-    const selected = t.id === theme;
+    const selected = th.id === theme;
     return (
       <button
-        key={t.id}
+        key={th.id}
         type="button"
-        onClick={() => onPick(t.id)}
+        onClick={() => onPick(th.id)}
         className={cn(
           "flex items-center gap-2.5 rounded-lg border p-2 text-left text-sm transition",
           selected ? "border-accent ring-1 ring-accent" : "border-border hover:bg-surface-2",
@@ -375,18 +398,18 @@ function ThemeSection({
         <span className="flex -space-x-1.5">
           <span
             className="h-4 w-4 rounded-full border border-border"
-            style={{ background: t.swatches.bg }}
+            style={{ background: th.swatches.bg }}
           />
           <span
             className="h-4 w-4 rounded-full border border-border"
-            style={{ background: t.swatches.surface }}
+            style={{ background: th.swatches.surface }}
           />
           <span
             className="h-4 w-4 rounded-full border border-border"
-            style={{ background: t.swatches.accent }}
+            style={{ background: th.swatches.accent }}
           />
         </span>
-        <span className="min-w-0 flex-1 truncate">{t.label}</span>
+        <span className="min-w-0 flex-1 truncate">{t(`theme.${th.id}`)}</span>
         {selected ? <Check className="h-3.5 w-3.5 shrink-0 text-accent" /> : null}
       </button>
     );
@@ -394,10 +417,8 @@ function ThemeSection({
 
   return (
     <section className="rounded-xl border border-border bg-surface p-4">
-      <h2 className="mb-1 text-sm font-semibold">Theme</h2>
-      <p className="mb-3 text-xs text-fg-muted">
-        System follows your OS; the rest force a palette. Picked here, applied at once.
-      </p>
+      <h2 className="mb-1 text-sm font-semibold">{t("theme.title")}</h2>
+      <p className="mb-3 text-xs text-fg-muted">{t("theme.copy")}</p>
 
       <div className="space-y-3">
         <button
@@ -409,20 +430,20 @@ function ThemeSection({
           )}
         >
           <Monitor className="h-4 w-4 shrink-0 text-fg-muted" />
-          <span className="min-w-0 flex-1 truncate">{system.label}</span>
+          <span className="min-w-0 flex-1 truncate">{t(`theme.${system.id}`)}</span>
           {theme === system.id ? <Check className="h-3.5 w-3.5 shrink-0 text-accent" /> : null}
         </button>
 
         <div>
           <p className="mb-1.5 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-fg-subtle">
-            <Sun className="h-3.5 w-3.5" /> Light
+            <Sun className="h-3.5 w-3.5" /> {t("theme.light")}
           </p>
           <div className="grid gap-2 sm:grid-cols-2">{light.map(option)}</div>
         </div>
 
         <div>
           <p className="mb-1.5 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-fg-subtle">
-            <Moon className="h-3.5 w-3.5" /> Dark
+            <Moon className="h-3.5 w-3.5" /> {t("theme.dark")}
           </p>
           <div className="grid gap-2 sm:grid-cols-2">{dark.map(option)}</div>
         </div>

@@ -64,6 +64,7 @@ export interface Settings {
   weeklyChartWeeks: number;
   alertAfterHours: number;
   theme: string;
+  language: string;
   alertsEnabled: boolean;
   lastAlertCheckAt: string | null;
 }

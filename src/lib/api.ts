@@ -21,8 +21,12 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   });
 
   if (response.status === 401) {
-    // A stale tab: the session went away while the page stayed open.
-    if (typeof window !== "undefined") window.location.href = "/login";
+    // A stale tab: the session went away while the page stayed open. Skip the
+    // redirect when already on /login, or the login page's own settings fetch
+    // (LanguageSync/AppShell) would 401 and reload /login onto itself forever.
+    if (typeof window !== "undefined" && window.location.pathname !== "/login") {
+      window.location.href = "/login";
+    }
     throw new ApiClientError(401, "Signed out");
   }
 

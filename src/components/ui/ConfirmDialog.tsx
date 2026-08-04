@@ -2,6 +2,7 @@
 
 import * as Dialog from "@radix-ui/react-dialog";
 import { Button } from "./primitives";
+import { useT } from "@/lib/i18n-client";
 
 export interface ConfirmDialogProps {
   open: boolean;
@@ -22,11 +23,14 @@ export function ConfirmDialog({
   open,
   title,
   description,
-  confirmLabel = "Confirm",
-  cancelLabel = "Cancel",
+  confirmLabel,
+  cancelLabel,
   onConfirm,
   onCancel,
 }: ConfirmDialogProps) {
+  const { t } = useT();
+  const confirm = confirmLabel ?? t("confirm.confirm");
+  const cancel = cancelLabel ?? t("confirm.cancel");
   return (
     <Dialog.Root open={open} onOpenChange={(next) => {
       if (!next) onCancel();
@@ -44,10 +48,10 @@ export function ConfirmDialog({
           ) : null}
           <div className="mt-4 flex justify-end gap-2">
             <Button size="sm" variant="ghost" onClick={onCancel}>
-              {cancelLabel}
+              {cancel}
             </Button>
             <Button size="sm" variant="primary" onClick={onConfirm}>
-              {confirmLabel}
+              {confirm}
             </Button>
           </div>
         </Dialog.Content>

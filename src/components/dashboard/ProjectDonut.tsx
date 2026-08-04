@@ -6,6 +6,7 @@ import { formatDurationHuman } from "@/domain/time";
 import { NEUTRAL_COLOR } from "@/lib/constants";
 import { useChartTheme } from "./chartTheme";
 import { ChartTooltip, DataTable, Panel } from "./Panel";
+import { useT } from "@/lib/i18n-client";
 import type { ProjectStat } from "@/lib/types";
 
 /**
@@ -19,6 +20,7 @@ const MAX_SLICES = 7;
 
 export function ProjectDonut({ projects }: { projects: ProjectStat[] }) {
   const theme = useChartTheme();
+  const { t } = useT();
 
   const { slices, total } = useMemo(() => {
     const sorted = [...projects].sort((a, b) => b.minutes - a.minutes);
@@ -30,7 +32,7 @@ export function ProjectDonut({ projects }: { projects: ProjectStat[] }) {
         ? [
             {
               projectId: "__other__",
-              name: `Other (${tail.length})`,
+              name: t("donut.other", { n: tail.length }),
               color: NEUTRAL_COLOR,
               minutes: tail.reduce((sum, item) => sum + item.minutes, 0),
             },
@@ -39,13 +41,14 @@ export function ProjectDonut({ projects }: { projects: ProjectStat[] }) {
 
     const all = [...head, ...folded];
     return { slices: all, total: all.reduce((sum, item) => sum + item.minutes, 0) };
-  }, [projects]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [projects, t]);
 
   if (total === 0) {
     return (
-      <Panel title="Time by project" subtitle="No time tracked in this range">
+      <Panel title={t("donut.title")} subtitle={t("donut.empty.title")}>
         <div className="flex h-56 items-center justify-center text-sm text-fg-subtle">
-          Nothing to show yet
+          {t("donut.empty.body")}
         </div>
       </Panel>
     );
@@ -55,11 +58,11 @@ export function ProjectDonut({ projects }: { projects: ProjectStat[] }) {
 
   return (
     <Panel
-      title="Time by project"
-      subtitle={`${formatDurationHuman(total)} total`}
+      title={t("donut.title")}
+      subtitle={t("donut.subtitle", { n: formatDurationHuman(total) })}
       table={
         <DataTable
-          head={["Project", "Tracked", "Share"]}
+          head={[t("donut.col.project"), t("donut.col.tracked"), t("donut.col.share")]}
           rows={slices.map((slice) => [
             slice.name,
             formatDurationHuman(slice.minutes),
@@ -95,11 +98,11 @@ export function ProjectDonut({ projects }: { projects: ProjectStat[] }) {
                       label={slice.name}
                       rows={[
                         {
-                          name: "Tracked",
+                          name: t("donut.col.tracked"),
                           value: formatDurationHuman(slice.minutes),
                           color: theme.series(slice.color),
                         },
-                        { name: "Share", value: `${share(slice.minutes)}%` },
+                        { name: t("donut.col.share"), value: `${share(slice.minutes)}%` },
                       ]}
                     />
                   );

@@ -31,6 +31,7 @@ import {
   Spinner,
 } from "@/components/ui/primitives";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
+import { useT } from "@/lib/i18n-client";
 import type { Project, Task, TaskSection } from "@/lib/types";
 
 /**
@@ -38,16 +39,16 @@ import type { Project, Task, TaskSection } from "@/lib/types";
  * project and independent of it: the same project can hold tasks on both sides,
  * which is why this is a field on the task rather than on the project.
  */
-const SECTIONS: { value: TaskSection; label: string; short: string }[] = [
-  { value: "WORK", label: "Work-related tasks", short: "Work" },
-  { value: "STUDY", label: "Study tasks", short: "Study" },
+const SECTIONS: { value: TaskSection; key: string }[] = [
+  { value: "WORK", key: "work" },
+  { value: "STUDY", key: "study" },
 ];
 
 const otherSection = (section: TaskSection): TaskSection =>
   section === "WORK" ? "STUDY" : "WORK";
 
-const shortLabel = (section: TaskSection): string =>
-  SECTIONS.find((entry) => entry.value === section)?.short ?? section;
+const sectionKey = (section: TaskSection): string =>
+  SECTIONS.find((entry) => entry.value === section)?.key ?? "work";
 
 interface ProjectGroup {
   project: Task["project"];
@@ -57,6 +58,7 @@ interface ProjectGroup {
 export function BacklogView() {
   const { data: settings } = useSettings();
   const tz = settings?.timezone ?? "UTC";
+  const { t } = useT();
 
   const { data: tasks, isLoading } = useTasks({});
   const { data: projects } = useProjects();
@@ -151,7 +153,7 @@ export function BacklogView() {
   return (
     <div className="py-4">
       <div className="mb-4 flex flex-wrap items-center gap-2">
-        <h1 className="text-lg font-semibold">Backlog</h1>
+        <h1 className="text-lg font-semibold">{t("backlog.heading")}</h1>
       </div>
 
       {/* ---- Add form ---- */}
@@ -159,7 +161,7 @@ export function BacklogView() {
         <div className="flex flex-col gap-2 sm:flex-row">
           <Input
             value={name}
-            placeholder="What needs doing?"
+            placeholder={t("backlog.placeholder")}
             onChange={(event) => setName(event.target.value)}
             onKeyDown={(event) => {
               if (event.key === "Enter") addTask();
@@ -168,23 +170,23 @@ export function BacklogView() {
           />
           <Select
             value={section}
-            aria-label="Section"
+            aria-label={t("backlog.sectionAria")}
             onChange={(event) => setSection(event.target.value as TaskSection)}
             className="sm:w-32"
           >
             {SECTIONS.map((entry) => (
               <option key={entry.value} value={entry.value}>
-                {entry.short}
+                {t(`backlog.sectionShort.${entry.key}`)}
               </option>
             ))}
           </Select>
           <Select
             value={projectId}
-            aria-label="Project"
+            aria-label={t("backlog.projectAria")}
             onChange={(event) => setProjectId(event.target.value)}
             className="sm:w-40"
           >
-            <option value="">Others</option>
+            <option value="">{t("common.others")}</option>
             {(projects ?? [])
               .filter((project) => !project.isSystem)
               .map((project) => (
@@ -200,7 +202,7 @@ export function BacklogView() {
             className="sm:w-40"
           />
           <IconButton
-            label="Add a description"
+            label={t("backlog.addDesc")}
             variant={showNotes || notes ? "secondary" : "ghost"}
             onClick={() => setShowNotes((prev) => !prev)}
           >
@@ -208,13 +210,13 @@ export function BacklogView() {
           </IconButton>
           <Button variant="primary" onClick={addTask} disabled={createTask.isPending}>
             <Plus className="h-4 w-4" />
-            Add
+            {t("backlog.add")}
           </Button>
         </div>
         {showNotes ? (
           <textarea
             value={notes}
-            placeholder="Description (optional)"
+            placeholder={t("backlog.notesPlaceholder")}
             onChange={(event) => setNotes(event.target.value)}
             className="mt-2 h-20 w-full resize-y rounded-lg border border-border bg-surface px-3 py-2 text-sm placeholder:text-fg-subtle focus:outline-none"
           />
@@ -227,15 +229,17 @@ export function BacklogView() {
         </div>
       ) : total === 0 ? (
         <EmptyState
-          title="The backlog is empty"
-          hint="Add a task above. Starting one opens a timer linked to it, so the dashboard can show real time spent."
+          title={t("backlog.empty.title")}
+          hint={t("backlog.empty.hint")}
         />
       ) : (
         <div className="space-y-7">
           {openSections.map((sectionGroup) => (
             <section key={sectionGroup.value}>
               <div className="mb-2.5 flex items-baseline gap-2 border-b border-border pb-1.5">
-                <h2 className="text-sm font-semibold">{sectionGroup.label}</h2>
+                <h2 className="text-sm font-semibold">
+                  {t(`backlog.section.${sectionGroup.key}`)}
+                </h2>
                 <span className="tabular text-xs text-fg-subtle">
                   {sectionGroup.count}
                 </span>
@@ -243,7 +247,9 @@ export function BacklogView() {
 
               {sectionGroup.groups.length === 0 ? (
                 <p className="rounded-xl border border-dashed border-border px-3 py-5 text-center text-xs text-fg-subtle">
-                  Nothing in {sectionGroup.short.toLowerCase()} yet.
+                  {t("backlog.emptySection", {
+                    section: t(`backlog.sectionShort.${sectionGroup.key}`),
+                  })}
                 </p>
               ) : (
                 <div className="space-y-4">
@@ -301,13 +307,13 @@ export function BacklogView() {
           {/* ---- Completed ---- */}
           <section>
             <div className="mb-2.5 flex items-baseline gap-2 border-b border-border pb-1.5">
-              <h2 className="text-sm font-semibold">Completed</h2>
+              <h2 className="text-sm font-semibold">{t("backlog.completed")}</h2>
               <span className="tabular text-xs text-fg-subtle">{completedCount}</span>
             </div>
 
             {completedCount === 0 ? (
               <p className="rounded-xl border border-dashed border-border px-3 py-5 text-center text-xs text-fg-subtle">
-                Nothing completed yet.
+                {t("backlog.completedEmpty")}
               </p>
             ) : (
               <div className="space-y-4">
@@ -354,14 +360,14 @@ export function BacklogView() {
 
       <ConfirmDialog
         open={confirmComplete !== null}
-        title="Mark as completed?"
+        title={t("backlog.confirm.title")}
         description={
           confirmComplete
-            ? `"${confirmComplete.name}" moves to the Completed section below.`
+            ? t("backlog.confirm.body", { name: confirmComplete.name })
             : undefined
         }
-        confirmLabel="Complete"
-        cancelLabel="Cancel"
+        confirmLabel={t("backlog.confirm.confirm")}
+        cancelLabel={t("backlog.confirm.cancel")}
         onConfirm={() => {
           if (confirmComplete) {
             updateTask.mutate({ id: confirmComplete.id, status: "DONE" });
@@ -409,6 +415,8 @@ function TaskRow({
   onMoveToSection?: (section: TaskSection) => void;
   onDelete: () => void;
 }) {
+  const { t } = useT();
+
   if (isEditing) {
     return (
       <li className="px-3 py-2.5">
@@ -429,7 +437,7 @@ function TaskRow({
     <div
       className="min-w-0 flex-1 cursor-text"
       onDoubleClick={onBeginEdit}
-      title="Double-click to edit"
+      title={t("backlog.taskRowHint")}
     >
       <p className={cn("truncate text-sm", done && "text-fg-subtle line-through")}>
         {task.name}
@@ -450,7 +458,9 @@ function TaskRow({
           </span>
         ) : null}
         {task.loggedMinutes > 0 ? (
-          <span className="tabular">{formatDurationHuman(task.loggedMinutes)} logged</span>
+          <span className="tabular">
+            {t("backlog.logged", { n: formatDurationHuman(task.loggedMinutes) })}
+          </span>
         ) : null}
       </div>
     </div>
@@ -460,7 +470,7 @@ function TaskRow({
     return (
       <li className="flex items-center gap-2.5 px-3 py-2.5 transition hover:bg-surface-2">
         <span
-          aria-label="Completed"
+          aria-label={t("backlog.completedBadge")}
           className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md border border-accent bg-accent text-accent-fg"
         >
           <Check className="h-3.5 w-3.5" />
@@ -472,12 +482,12 @@ function TaskRow({
             size="sm"
             variant={task.section === entry.value ? "secondary" : "ghost"}
             onClick={() => onMoveToSection?.(entry.value)}
-            title={`Reopen into ${entry.label.toLowerCase()}`}
+            title={t("backlog.reopen", { section: t(`backlog.section.${entry.key}`) })}
           >
-            {entry.short}
+            {t(`backlog.sectionShort.${entry.key}`)}
           </Button>
         ))}
-        <IconButton label="Delete task" variant="danger" onClick={onDelete}>
+        <IconButton label={t("backlog.deleteTask")} variant="danger" onClick={onDelete}>
           <Trash2 className="h-4 w-4" />
         </IconButton>
       </li>
@@ -488,7 +498,7 @@ function TaskRow({
     <li className="flex items-center gap-2.5 px-3 py-2.5 transition hover:bg-surface-2">
       <button
         type="button"
-        aria-label="Complete task"
+        aria-label={t("backlog.completeTask")}
         onClick={onToggleStatus}
         className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md border border-border-strong transition hover:border-accent"
       >
@@ -497,21 +507,23 @@ function TaskRow({
       {body}
 
       <IconButton
-        label={`Move to ${shortLabel(otherSection(task.section))}`}
+        label={t("backlog.moveTo", {
+          section: t(`backlog.sectionShort.${sectionKey(otherSection(task.section))}`),
+        })}
         onClick={onMoveSection}
       >
         <ArrowLeftRight className="h-4 w-4" />
       </IconButton>
 
       <IconButton
-        label={`Start ${task.name}`}
+        label={t("backlog.start", { name: task.name })}
         onClick={onStart}
         className="text-accent hover:bg-accent-soft"
       >
         <Play className="h-4 w-4 fill-current" />
       </IconButton>
 
-      <IconButton label="Delete task" variant="danger" onClick={onDelete}>
+      <IconButton label={t("backlog.deleteTask")} variant="danger" onClick={onDelete}>
         <Trash2 className="h-4 w-4" />
       </IconButton>
     </li>
@@ -546,6 +558,7 @@ function TaskEditForm({
   const [section, setSection] = useState<TaskSection>(task.section);
   const [projectId, setProjectId] = useState(seededProjectId);
   const [dueDate, setDueDate] = useState(task.dueDate ?? "");
+  const { t } = useT();
 
   function save() {
     const trimmed = name.trim();
@@ -563,7 +576,7 @@ function TaskEditForm({
     <div className="space-y-2">
       <Input
         value={name}
-        placeholder="Task name"
+        placeholder={t("backlog.edit.namePlaceholder")}
         autoFocus
         onChange={(event) => setName(event.target.value)}
         onKeyDown={(event) => {
@@ -575,23 +588,23 @@ function TaskEditForm({
       <div className="flex flex-wrap gap-2">
         <Select
           value={section}
-          aria-label="Section"
+          aria-label={t("backlog.edit.sectionAria")}
           onChange={(event) => setSection(event.target.value as TaskSection)}
           className="w-32"
         >
           {SECTIONS.map((entry) => (
             <option key={entry.value} value={entry.value}>
-              {entry.short}
+              {t(`backlog.sectionShort.${entry.key}`)}
             </option>
           ))}
         </Select>
         <Select
           value={projectId}
-          aria-label="Project"
+          aria-label={t("backlog.edit.projectAria")}
           onChange={(event) => setProjectId(event.target.value)}
           className="w-40"
         >
-          <option value="">Others</option>
+          <option value="">{t("common.others")}</option>
           {(projects ?? [])
             .filter((project) => !project.isSystem)
             .map((project) => (
@@ -609,7 +622,7 @@ function TaskEditForm({
       </div>
       <textarea
         value={notes}
-        placeholder="Description (optional)"
+        placeholder={t("backlog.notesPlaceholder")}
         onChange={(event) => setNotes(event.target.value)}
         onKeyDown={(event) => {
           if (event.key === "Escape") onCancel();
@@ -618,10 +631,10 @@ function TaskEditForm({
       />
       <div className="flex justify-end gap-2">
         <Button size="sm" variant="ghost" onClick={onCancel}>
-          Cancel
+          {t("backlog.edit.cancel")}
         </Button>
         <Button size="sm" variant="primary" onClick={save}>
-          Save
+          {t("backlog.edit.save")}
         </Button>
       </div>
     </div>

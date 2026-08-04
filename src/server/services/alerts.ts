@@ -9,6 +9,7 @@ import { db } from "@/server/db";
 import { getSettings } from "@/server/settings";
 import { elapsedHours, shouldAlert } from "@/domain/alerts";
 import { formatClock, formatDateISO, formatDurationHuman } from "@/domain/time";
+import { t, isLang, type Lang } from "@/lib/i18n";
 
 export interface AlertCheckResult {
   sent: boolean;
@@ -43,6 +44,7 @@ export async function runAlertCheck(): Promise<AlertCheckResult> {
     now,
     timezone: settings.timezone,
     thresholdHours: settings.alertAfterHours,
+    lang: isLang(settings.language) ? settings.language : "en",
   });
 
   // Only stamp after the send succeeds, so a transient email failure retries
@@ -63,6 +65,7 @@ interface RunawayEmail {
   now: Date;
   timezone: string;
   thresholdHours: number;
+  lang: Lang;
 }
 
 async function sendRunawayTimerEmail(entry: RunawayEmail): Promise<void> {
@@ -77,22 +80,23 @@ async function sendRunawayTimerEmail(entry: RunawayEmail): Promise<void> {
   const label = entry.description.trim() || "(no description)";
   const elapsed = elapsedHours(entry.startedAt, entry.now);
   const appUrl = process.env.NEXTAUTH_URL ?? process.env.AUTH_URL ?? "";
+  const { lang } = entry;
 
   const lines = [
-    `A Cadence timer has been running for ${elapsed} hours.`,
+    t("email.line1", { elapsed }, lang),
     "",
-    `  Description : ${label}`,
-    `  Project     : ${entry.projectName}`,
-    ...(entry.taskName ? [`  Task        : ${entry.taskName}`] : []),
-    `  Started     : ${formatDateISO(entry.startedAt, entry.timezone)} at ${formatClock(
+    `  ${t("email.desc", undefined, lang).padEnd(11)}: ${label}`,
+    `  ${t("email.project", undefined, lang).padEnd(11)}: ${entry.projectName}`,
+    ...(entry.taskName ? [`  ${t("email.task", undefined, lang).padEnd(11)}: ${entry.taskName}`] : []),
+    `  ${t("email.started", undefined, lang).padEnd(11)}: ${formatDateISO(entry.startedAt, entry.timezone)} ${t("email.at", undefined, lang)} ${formatClock(
       entry.startedAt,
       entry.timezone,
     )} (${entry.timezone})`,
-    `  Elapsed     : ${formatDurationHuman(
+    `  ${t("email.elapsed", undefined, lang).padEnd(11)}: ${formatDurationHuman(
       Math.round((entry.now.getTime() - entry.startedAt.getTime()) / 60_000),
     )}`,
     "",
-    "Nothing has been changed — the timer is still running.",
+    t("email.nochange", undefined, lang),
     ...(appUrl ? ["", appUrl] : []),
   ];
 
@@ -100,7 +104,7 @@ async function sendRunawayTimerEmail(entry: RunawayEmail): Promise<void> {
   const { error } = await resend.emails.send({
     from,
     to,
-    subject: `Timer running for ${elapsed}h — ${label}`,
+    subject: t("email.subject", { elapsed, label }, lang),
     text: lines.join("\n"),
   });
 

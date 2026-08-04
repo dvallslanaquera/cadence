@@ -16,6 +16,7 @@ import { formatDurationHuman, minutesToHours } from "@/domain/time";
 import { Input } from "@/components/ui/primitives";
 import { axisTick, useChartTheme } from "./chartTheme";
 import { ChartTooltip, DataTable, Panel } from "./Panel";
+import { useT } from "@/lib/i18n-client";
 import type { WeeklyStat } from "@/lib/types";
 
 const ROLLING_WINDOW = 4;
@@ -36,6 +37,7 @@ export function HoursPerWeekChart({
   onWeekCountChange: (value: number) => void;
 }) {
   const theme = useChartTheme();
+  const { t } = useT();
   const weeklyGoal = goalHours * 5;
 
   const data = weeks.map((week, index) => {
@@ -56,11 +58,11 @@ export function HoursPerWeekChart({
 
   return (
     <Panel
-      title="Hours per week"
-      subtitle={`Last ${weekCount} weeks · goal ${weeklyGoal}h/week`}
+      title={t("chart.perWeek.title")}
+      subtitle={t("chart.perWeek.subtitle", { weeks: weekCount, goal: weeklyGoal })}
       controls={
         <label className="flex items-center gap-1.5 text-xs text-fg-muted">
-          Weeks
+          {t("chart.perWeek.weeks")}
           <Input
             type="number"
             min={1}
@@ -78,7 +80,7 @@ export function HoursPerWeekChart({
       }
       table={
         <DataTable
-          head={["Week", "Tracked", `${ROLLING_WINDOW}-week avg`]}
+          head={[t("chart.perWeek.col.week"), t("chart.perWeek.col.tracked"), t("chart.perWeek.col.avg", { n: ROLLING_WINDOW })]}
           rows={data.map((d) => [d.week, formatDurationHuman(d.minutes), `${d.average}h`])}
         />
       }
@@ -113,12 +115,12 @@ export function HoursPerWeekChart({
                     label={point.week}
                     rows={[
                       {
-                        name: "Tracked",
+                        name: t("chart.perWeek.series.tracked"),
                         value: formatDurationHuman(point.minutes),
                         color: theme.primary,
                       },
                       {
-                        name: `${ROLLING_WINDOW}-week avg`,
+                        name: t("chart.perWeek.series.avg", { n: ROLLING_WINDOW }),
                         value: `${point.average}h`,
                         color: theme.secondary,
                       },
@@ -145,7 +147,7 @@ export function HoursPerWeekChart({
             />
             <Bar
               dataKey="hours"
-              name="Tracked"
+              name={t("chart.perWeek.series.tracked")}
               radius={[4, 4, 0, 0]}
               maxBarSize={28}
               fill={theme.primary}
@@ -153,7 +155,7 @@ export function HoursPerWeekChart({
             <Line
               type="monotone"
               dataKey="average"
-              name={`${ROLLING_WINDOW}-week average`}
+              name={t("chart.perWeek.series.avg", { n: ROLLING_WINDOW })}
               stroke={theme.secondary}
               strokeWidth={2}
               dot={false}

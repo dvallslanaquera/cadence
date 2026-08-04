@@ -3,6 +3,7 @@
 import { useState, type ReactNode } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "sonner";
+import { LanguageSync } from "@/lib/i18n-client";
 
 export function Providers({ children }: { children: ReactNode }) {
   const [client] = useState(
@@ -24,6 +25,7 @@ export function Providers({ children }: { children: ReactNode }) {
 
   return (
     <QueryClientProvider client={client}>
+      <LanguageSync />
       {children}
       <Toaster position="bottom-center" closeButton richColors />
     </QueryClientProvider>

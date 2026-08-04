@@ -4,6 +4,7 @@ import { useState } from "react";
 import * as Popover from "@radix-ui/react-popover";
 import { PROJECT_COLORS } from "@/lib/constants";
 import { cn } from "@/lib/utils";
+import { useT } from "@/lib/i18n-client";
 
 /**
  * A project's colour dot as a button. Clicking opens a menu with a native
@@ -23,6 +24,7 @@ export function ColorSwatchPicker({
   size?: "sm" | "md";
 }) {
   const [open, setOpen] = useState(false);
+  const { t } = useT();
 
   function pick(value: string) {
     onPick(value);
@@ -34,8 +36,8 @@ export function ColorSwatchPicker({
       <Popover.Trigger asChild>
         <button
           type="button"
-          aria-label="Change project colour"
-          title="Change colour"
+          aria-label={t("color.changeProject")}
+          title={t("color.change")}
           onClick={(event) => event.stopPropagation()}
           className={cn(
             "flex shrink-0 items-center justify-center rounded-full transition hover:bg-surface-2",
@@ -60,10 +62,10 @@ export function ColorSwatchPicker({
               type="color"
               value={color}
               onChange={(event) => pick(event.target.value)}
-              aria-label="Custom colour"
+              aria-label={t("color.custom")}
               className="h-7 w-9 shrink-0 cursor-pointer rounded-md border border-border bg-surface p-0.5"
             />
-            <span className="text-xs text-fg-muted">Custom colour</span>
+            <span className="text-xs text-fg-muted">{t("color.custom")}</span>
           </label>
 
           <div className="my-2 border-t border-border" />
@@ -73,7 +75,7 @@ export function ColorSwatchPicker({
               <button
                 key={swatch}
                 type="button"
-                aria-label={`Use ${swatch}`}
+                aria-label={t("color.use", { swatch })}
                 onClick={() => pick(swatch)}
                 className={cn(
                   "h-7 w-7 rounded-full transition hover:scale-110",

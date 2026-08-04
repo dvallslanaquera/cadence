@@ -7,6 +7,7 @@ import { useUpdateTask } from "@/lib/queries";
 import { cn } from "@/lib/utils";
 import { ColorDot } from "@/components/ui/primitives";
 import { ProjectPicker } from "@/components/ui/ProjectPicker";
+import { useT } from "@/lib/i18n-client";
 import type { Task } from "@/lib/types";
 
 /**
@@ -25,10 +26,12 @@ export function DayTaskStrip({
 }) {
   const [open, setOpen] = useLocalStorage(`cadence:dayTasks:${dayKey}`, false);
   const updateTask = useUpdateTask();
+  const { t } = useT();
 
   if (tasks.length === 0) return null;
 
   const remaining = tasks.filter((task) => task.status === "OPEN").length;
+  const done = tasks.length;
 
   return (
     <Collapsible.Root open={open} onOpenChange={setOpen} className="mt-1">
@@ -41,7 +44,7 @@ export function DayTaskStrip({
         )}
       >
         <ChevronDown className={cn("h-3 w-3 transition-transform", open && "rotate-180")} />
-        {remaining > 0 ? `${remaining} due` : `${tasks.length} done`}
+        {remaining > 0 ? t("taskstrip.due", { n: remaining }) : t("taskstrip.done", { n: done })}
       </Collapsible.Trigger>
 
       <Collapsible.Content className="mt-1 space-y-1">
@@ -59,7 +62,7 @@ export function DayTaskStrip({
               trigger={({ color, name }) => (
                 <button
                   type="button"
-                  title={`${task.name} — ${name}. Click to change project.`}
+                  title={t("taskstrip.changeProject", { name: task.name, project: name })}
                   className="flex min-w-0 flex-1 items-center gap-1 rounded px-0.5 py-0.5 text-left transition hover:bg-surface-2"
                 >
                   <ColorDot color={color} />
@@ -77,8 +80,8 @@ export function DayTaskStrip({
             {task.status === "OPEN" ? (
               <button
                 type="button"
-                aria-label={`Start ${task.name}`}
-                title={`Start ${task.name}`}
+                aria-label={t("taskstrip.start", { name: task.name })}
+                title={t("taskstrip.start", { name: task.name })}
                 onClick={() => onStart(task)}
                 className="shrink-0 rounded p-0.5 text-accent transition hover:bg-accent-soft"
               >

@@ -2,6 +2,7 @@
 
 import { formatDurationHuman, minutesToHours } from "@/domain/time";
 import { ColorDot } from "@/components/ui/primitives";
+import { useT } from "@/lib/i18n-client";
 import type { ProjectStat, SummaryStat } from "@/lib/types";
 
 /**
@@ -24,35 +25,35 @@ export function SummaryStrip({
   const average = activeDays > 0 ? total / activeDays : 0;
   const goalMinutes = goalHours * 60 * 5 * rangeWeeks;
   const vsGoal = minutesToHours(total - goalMinutes);
+  const { t, plural } = useT();
 
   return (
     <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-      <Tile label="Total tracked" value={formatDurationHuman(total)} />
+      <Tile label={t("summary.total")} value={formatDurationHuman(total)} />
       <Tile
-        label="Average per active day"
+        label={t("summary.avg")}
         value={formatDurationHuman(average)}
-        hint={`${activeDays} day${activeDays === 1 ? "" : "s"} with time`}
+        hint={plural(activeDays, "summary.avgHint.one", "summary.avgHint.other")}
       />
       <Tile
-        label="Longest day"
+        label={t("summary.longest")}
         value={formatDurationHuman(summary?.longestDayMinutes ?? 0)}
         hint={summary?.longestDay ?? undefined}
       />
       <Tile
-        label="Most tracked project"
+        label={t("summary.topProject")}
         value={topProject?.name ?? "—"}
         hint={topProject ? formatDurationHuman(topProject.minutes) : undefined}
         dot={topProject?.color}
       />
 
       <div className="col-span-2 rounded-xl border border-border bg-surface px-3 py-2 text-xs text-fg-muted lg:col-span-4">
-        Against a {goalHours}h/day goal over {rangeWeeks} week
-        {rangeWeeks === 1 ? "" : "s"} of weekdays, that is{" "}
-        <span className="tabular font-medium text-fg">
-          {vsGoal >= 0 ? "+" : ""}
-          {vsGoal}h
-        </span>
-        .
+        {plural(
+          rangeWeeks,
+          "summary.goal.one",
+          "summary.goal.other",
+          { goal: goalHours, weeks: rangeWeeks, vsGoal: `${vsGoal >= 0 ? "+" : ""}${vsGoal}h` },
+        )}
       </div>
     </div>
   );
