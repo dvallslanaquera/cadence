@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { ChevronLeft, ChevronRight, Plus } from "lucide-react";
 import {
@@ -36,7 +36,7 @@ import {
   weekKey as toWeekKey,
   weekStartFromKey,
 } from "@/domain/time";
-import { cn } from "@/lib/utils";
+import { cn, newEntryId } from "@/lib/utils";
 import { Button, IconButton, Spinner } from "@/components/ui/primitives";
 import type { Task } from "@/lib/types";
 import { DayColumn } from "./DayColumn";
@@ -195,71 +195,108 @@ export function WeekView() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [weekStart, tz]);
 
+  // ---- Creating an entry ----
+  //
+  // Every path below opens the editor on the new entry before the POST comes
+  // back. The id is minted here and the optimistic block sits in the cache under
+  // it, so the server's row lands on the same id a moment later. Waiting for the
+  // server cost a round trip and then a whole refetch, since the id only existed
+  // once the entries list came back, which is a long time to sit looking at a
+  // grid after a double-click. See ARCHITECTURE.md §8.
+
+  /** A create the server refused takes its block, and the editor, with it. */
+  const dropSelection = useCallback((id: string) => {
+    setSelectedEntryId((current) => (current === id ? null : current));
+  }, []);
+
+  const startTimerMutate = startTimer.mutate;
+  const createEntryMutate = createEntry.mutate;
+  const updateEntryAsync = updateEntry.mutateAsync;
+
   /** The "Start timer" button and the day task strip: a live timer from now. */
-  function quickStart(task?: Task) {
-    startTimer.mutate(
-      task
-        ? { description: task.name, projectId: task.project.id, taskId: task.id }
-        : {},
-      { onSuccess: (result) => setSelectedEntryId(result.entry.id) },
-    );
-  }
+  const quickStart = useCallback(
+    (task?: Task) => {
+      const id = newEntryId();
+      setSelectedEntryId(id);
+      startTimerMutate(
+        task
+          ? { id, description: task.name, projectId: task.project.id, taskId: task.id }
+          : { id },
+        { onError: () => dropSelection(id) },
+      );
+    },
+    [startTimerMutate, dropSelection],
+  );
 
   /**
    * Click on empty grid: you are doing this now, so start a live timer at the
    * minute you clicked and leave it running. It lands in the strip at the top of
    * every page, and stays there until you stop it or type an end time.
    */
-  function startTimerAt(dayKeyValue: string, startMinutes: number) {
-    startTimer.mutate(
-      { startedAt: instantFromLocalParts(dayKeyValue, startMinutes, tz).toISOString() },
-      { onSuccess: (result) => setSelectedEntryId(result.entry.id) },
-    );
-  }
+  const startTimerAt = useCallback(
+    (dayKeyValue: string, startMinutes: number) => {
+      const id = newEntryId();
+      setSelectedEntryId(id);
+      startTimerMutate(
+        { id, startedAt: instantFromLocalParts(dayKeyValue, startMinutes, tz).toISOString() },
+        { onError: () => dropSelection(id) },
+      );
+    },
+    [startTimerMutate, dropSelection, tz],
+  );
 
   /** Drag on empty grid: a completed entry over exactly that range. */
-  function createRange(dayKeyValue: string, startMinutes: number, endMinutes: number) {
-    createEntry.mutate(
-      {
-        startedAt: instantFromLocalParts(dayKeyValue, startMinutes, tz).toISOString(),
-        endedAt: instantFromLocalParts(dayKeyValue, endMinutes, tz).toISOString(),
-      },
-      { onSuccess: (result) => setSelectedEntryId(result.entry.id) },
-    );
-  }
+  const createRange = useCallback(
+    (dayKeyValue: string, startMinutes: number, endMinutes: number) => {
+      const id = newEntryId();
+      setSelectedEntryId(id);
+      createEntryMutate(
+        {
+          id,
+          startedAt: instantFromLocalParts(dayKeyValue, startMinutes, tz).toISOString(),
+          endedAt: instantFromLocalParts(dayKeyValue, endMinutes, tz).toISOString(),
+        },
+        { onError: () => dropSelection(id) },
+      );
+    },
+    [createEntryMutate, dropSelection, tz],
+  );
 
   // These return the mutation's promise so the block can hold its dragged
-  // position until the write lands or rolls back.
-  function moveEntry(segment: PositionedSegment, deltaMinutes: number) {
-    const entry = segment.entry;
-    if (!entry.endedAt) return;
-    const shift = deltaMinutes * 60_000;
-    return updateEntry.mutateAsync({
-      id: entry.id,
-      startedAt: new Date(new Date(entry.startedAt).getTime() + shift).toISOString(),
-      endedAt: new Date(new Date(entry.endedAt).getTime() + shift).toISOString(),
-    });
-  }
-
-  function resizeEntry(
-    segment: PositionedSegment,
-    edge: "start" | "end",
-    deltaMinutes: number,
-  ) {
-    const entry = segment.entry;
-    const shift = deltaMinutes * 60_000;
-    if (edge === "start") {
-      return updateEntry.mutateAsync({
+  // position until the write lands or rolls back. Stable identities, so that
+  // selecting or dragging one block does not re-render every other one.
+  const moveEntry = useCallback(
+    (segment: PositionedSegment, deltaMinutes: number) => {
+      const entry = segment.entry;
+      if (!entry.endedAt) return;
+      const shift = deltaMinutes * 60_000;
+      return updateEntryAsync({
         id: entry.id,
         startedAt: new Date(new Date(entry.startedAt).getTime() + shift).toISOString(),
+        endedAt: new Date(new Date(entry.endedAt).getTime() + shift).toISOString(),
       });
-    }
-    if (!entry.endedAt) return;
-    return updateEntry.mutateAsync({
-      id: entry.id,
-      endedAt: new Date(new Date(entry.endedAt).getTime() + shift).toISOString(),
-    });
-  }
+    },
+    [updateEntryAsync],
+  );
+
+  const resizeEntry = useCallback(
+    (segment: PositionedSegment, edge: "start" | "end", deltaMinutes: number) => {
+      const entry = segment.entry;
+      const shift = deltaMinutes * 60_000;
+      if (edge === "start") {
+        return updateEntryAsync({
+          id: entry.id,
+          startedAt: new Date(new Date(entry.startedAt).getTime() + shift).toISOString(),
+        });
+      }
+      if (!entry.endedAt) return;
+      return updateEntryAsync({
+        id: entry.id,
+        endedAt: new Date(new Date(entry.endedAt).getTime() + shift).toISOString(),
+      });
+    },
+    [updateEntryAsync],
+  );
 
   const visibleDays = isDesktop ? days : days.slice(mobileDayIndex ?? 0, (mobileDayIndex ?? 0) + 1);
   const weekTotal = days.reduce(

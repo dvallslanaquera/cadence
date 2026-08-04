@@ -10,6 +10,12 @@ import { Input } from "./primitives";
 export interface DescriptionInputProps {
   value: string;
   onChange: (value: string) => void;
+  /**
+   * A description was chosen from the list, not typed. Carries the project that
+   * description is most often logged under so the editor can switch to it — the
+   * one field you would otherwise re-pick every time you reused a description.
+   */
+  onSelectSuggestion?: (description: string, projectId: string | null) => void;
   /** Enter on the field with no suggestion highlighted. */
   onSubmit: () => void;
   /** Escape with the list already closed. */
@@ -36,6 +42,7 @@ export interface DescriptionInputProps {
 export function DescriptionInput({
   value,
   onChange,
+  onSelectSuggestion,
   onSubmit,
   onCancel,
   onOpenChange,
@@ -50,10 +57,21 @@ export function DescriptionInput({
   const [typing, setTyping] = useState(false);
   const [highlight, setHighlight] = useState(-1);
 
+  // The history arrives already ordered by how often each description has been
+  // used, so ranking only filters and breaks ties. The project each one pairs
+  // with is held alongside so a chosen description can carry its project up to
+  // the editor in one step.
+  const descriptions = useMemo(() => (history ?? []).map((item) => item.description), [history]);
   const suggestions = useMemo(
-    () => rankSuggestions(history ?? [], value, DESCRIPTION_SUGGESTION_COUNT),
-    [history, value],
+    () => rankSuggestions(descriptions, value, DESCRIPTION_SUGGESTION_COUNT),
+    [descriptions, value],
   );
+
+  const projectByDescription = useMemo(() => {
+    const map = new Map<string, string | null>();
+    for (const item of history ?? []) map.set(item.description, item.projectId);
+    return map;
+  }, [history]);
 
   const open = typing && suggestions.length > 0;
 
@@ -68,6 +86,9 @@ export function DescriptionInput({
 
   function choose(suggestion: string) {
     onChange(suggestion);
+    // The project follows the description. Picking "Interview preparation"
+    // lands on the project you log it under.
+    onSelectSuggestion?.(suggestion, projectByDescription.get(suggestion) ?? null);
     close();
     inputRef.current?.focus();
   }

@@ -12,6 +12,7 @@ import { api, ApiClientError } from "./api";
 import { RUNNING_POLL_MS } from "./constants";
 import type {
   DailyStat,
+  DescriptionSuggestion,
   Entry,
   Project,
   ProjectRef,
@@ -70,6 +71,32 @@ function reportError(error: unknown) {
 
 interface EntriesPayload {
   entries: Entry[];
+}
+
+/**
+ * Creates the server has not answered yet.
+ *
+ * The grid opens the editor on a new entry the moment you double-click, so
+ * every control in that editor is live while the POST is still in the air. The
+ * ones that name a row the database may not have yet wait here first. There is
+ * never more than one or two of these, and waiting on all of them covers
+ * stop-the-timer, which names no id at all.
+ */
+const pendingCreates = new Set<Promise<unknown>>();
+
+function trackCreate<T>(work: Promise<T>): Promise<T> {
+  const settled = work.then(
+    () => undefined,
+    () => undefined,
+  );
+  pendingCreates.add(settled);
+  void settled.finally(() => pendingCreates.delete(settled));
+  return work;
+}
+
+/** Resolves once every in-flight create has landed, however it went. */
+function afterPendingCreates(): Promise<unknown> {
+  return pendingCreates.size === 0 ? Promise.resolve() : Promise.all(pendingCreates);
 }
 
 /**
@@ -253,14 +280,17 @@ export function useTags() {
 }
 
 /**
- * Past entry descriptions for the editor's autocomplete, most-used first. One
- * fetch feeds every keystroke; a minute of staleness only delays a description
- * you invented a minute ago from joining the list.
+ * Past entry descriptions for the editor's autocomplete, most-used first, each
+ * paired with the project it is most often logged under so the editor can
+ * switch to it when one is chosen from the list. One fetch feeds every
+ * keystroke; a minute of staleness only delays a description you invented a
+ * minute ago from joining the list.
  */
 export function useDescriptionHistory() {
   return useQuery({
     queryKey: keys.descriptions,
-    queryFn: () => api.get<{ descriptions: string[] }>("/api/entries/descriptions"),
+    queryFn: () =>
+      api.get<{ descriptions: DescriptionSuggestion[] }>("/api/entries/descriptions"),
     select: (data) => data.descriptions,
     staleTime: 60_000,
   });
@@ -312,22 +342,29 @@ export interface StartTimerInput {
   tags?: string[];
   /** A minute that has already passed, from a click on the grid. Defaults to now. */
   startedAt?: string;
+  /**
+   * The id to create the entry under, from `newEntryId`. Supplied by the grid,
+   * which opens the editor on the new entry before the server has answered.
+   * See ARCHITECTURE.md §8.
+   */
+  id?: string;
 }
 
 export function useStartTimer() {
   const client = useQueryClient();
   return useMutation({
     mutationFn: (input: StartTimerInput) =>
-      api.post<{ entry: Entry }>("/api/timer/start", input),
+      trackCreate(api.post<{ entry: Entry }>("/api/timer/start", input)),
 
     onMutate: async (input) => {
       const snapshot = await beginOptimistic(client, "entries");
       const startedAt = roundToMinute(input.startedAt ? new Date(input.startedAt) : new Date());
 
       const optimistic: Entry = {
-        // Replaced by the server's row on the next refetch; distinct enough
-        // that it can never be mistaken for a real cuid.
-        id: `optimistic-${startedAt.getTime()}`,
+        // Without a caller-supplied id, the server's row replaces this one on
+        // the next refetch; distinct enough that it can never be mistaken for a
+        // real cuid in the meantime.
+        id: input.id ?? `optimistic-${startedAt.getTime()}`,
         description: input.description ?? "",
         startedAt: startedAt.toISOString(),
         endedAt: null,
@@ -356,6 +393,18 @@ export function useStartTimer() {
       return { snapshot };
     },
 
+    // Take the server's row now rather than at the end of the refetch. The
+    // editor is already open on this id, and its start may have been clipped
+    // against whatever was running.
+    onSuccess: (result, input) => {
+      const id = input.id;
+      if (!id) return;
+      patchEntry(client, id, () => result.entry);
+      client.setQueryData<RunningState>(keys.running, (state) =>
+        state && state.entry?.id === id ? { ...state, entry: result.entry } : state,
+      );
+    },
+
     onError: (error, _input, context) => {
       rollback(client, context?.snapshot);
       reportError(error);
@@ -367,7 +416,10 @@ export function useStartTimer() {
 export function useStopTimer() {
   const client = useQueryClient();
   return useMutation({
-    mutationFn: () => api.post<{ entry: Entry }>("/api/timer/stop"),
+    mutationFn: async () => {
+      await afterPendingCreates();
+      return api.post<{ entry: Entry }>("/api/timer/stop");
+    },
 
     onMutate: async () => {
       const snapshot = await beginOptimistic(client, "entries");
@@ -405,20 +457,22 @@ export interface CreateEntryInput {
   startedAt: string;
   endedAt: string;
   tags?: string[];
+  /** See `StartTimerInput.id`. */
+  id?: string;
 }
 
 export function useCreateEntry() {
   const client = useQueryClient();
   return useMutation({
     mutationFn: (input: CreateEntryInput) =>
-      api.post<{ entry: Entry }>("/api/entries", input),
+      trackCreate(api.post<{ entry: Entry }>("/api/entries", input)),
 
     onMutate: async (input) => {
       const snapshot = await beginOptimistic(client, "entries");
       const startedAt = new Date(input.startedAt);
 
       const optimistic: Entry = {
-        id: `optimistic-${startedAt.getTime()}`,
+        id: input.id ?? `optimistic-${startedAt.getTime()}`,
         description: input.description ?? "",
         startedAt: input.startedAt,
         endedAt: input.endedAt,
@@ -433,6 +487,12 @@ export function useCreateEntry() {
       );
 
       return { snapshot };
+    },
+
+    // See `useStartTimer`: the editor is open on this id while the POST is in
+    // the air, so the server's rounding lands as soon as it arrives.
+    onSuccess: (result, input) => {
+      if (input.id) patchEntry(client, input.id, () => result.entry);
     },
 
     onError: (error, _input, context) => {
@@ -461,8 +521,10 @@ export interface UpdateEntryInput {
 export function useUpdateEntry() {
   const client = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, ...input }: UpdateEntryInput & { id: string }) =>
-      api.patch<{ entry: Entry }>(`/api/entries/${id}`, input),
+    mutationFn: async ({ id, ...input }: UpdateEntryInput & { id: string }) => {
+      await afterPendingCreates();
+      return api.patch<{ entry: Entry }>(`/api/entries/${id}`, input);
+    },
 
     onMutate: async ({ id, ...input }) => {
       const snapshot = await beginOptimistic(client, "entries");
@@ -514,7 +576,10 @@ export function useDeleteEntry() {
   const recreate = useCreateEntry();
 
   return useMutation({
-    mutationFn: (entry: Entry) => api.delete<{ ok: true }>(`/api/entries/${entry.id}`),
+    mutationFn: async (entry: Entry) => {
+      await afterPendingCreates();
+      return api.delete<{ ok: true }>(`/api/entries/${entry.id}`);
+    },
     onSuccess: (_result, entry) => {
       invalidateTimeData(client);
       if (!entry.endedAt) return; // a running entry can't be recreated verbatim

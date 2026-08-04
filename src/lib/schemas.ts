@@ -9,7 +9,16 @@ const isoDateTime = z
   .or(z.string().datetime())
   .transform((value) => new Date(value));
 
+/**
+ * The id the browser has already given a row it is creating. The grid opens the
+ * editor on a new block in the same frame as the click, before the write has
+ * landed, so the row has to arrive carrying the id the editor is pointing at
+ * instead of picking one up from the database.
+ */
+const clientId = z.string().trim().min(1).max(64).optional();
+
 export const entryCreateSchema = z.object({
+  id: clientId,
   description: z.string().trim().max(500).default(""),
   projectId: z.string().min(1).nullable().optional(),
   taskId: z.string().min(1).nullable().optional(),
@@ -28,6 +37,7 @@ export const entryUpdateSchema = z.object({
 });
 
 export const timerStartSchema = z.object({
+  id: clientId,
   description: z.string().trim().max(500).default(""),
   projectId: z.string().min(1).nullable().optional(),
   taskId: z.string().min(1).nullable().optional(),

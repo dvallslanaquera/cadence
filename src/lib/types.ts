@@ -9,6 +9,13 @@ export interface ProjectRef {
   color: string;
 }
 
+export interface DescriptionSuggestion {
+  description: string;
+  /** The project this description is most often logged under, or null if
+   * every past pairing was with a now-archived project. */
+  projectId: string | null;
+}
+
 export interface Project extends ProjectRef {
   isSystem: boolean;
   archived: boolean;

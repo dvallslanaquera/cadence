@@ -5,6 +5,7 @@ import { ApiError } from "@/server/api";
 import { findConflicts, validateEntryShape } from "@/domain/overlap";
 import { addMinutes, formatClock, roundToMinute } from "@/domain/time";
 import { entryCreateSchema, entryUpdateSchema, timerStartSchema } from "@/lib/schemas";
+import type { DescriptionSuggestion } from "@/lib/types";
 
 const entryInclude = {
   project: { select: { id: true, name: true, color: true } },
@@ -43,7 +44,7 @@ type Tx = Prisma.TransactionClient;
 async function systemProjectId(tx: Tx | typeof db): Promise<string> {
   const project = await tx.project.findFirst({ where: { isSystem: true } });
   if (!project) {
-    throw new ApiError(500, 'No "Others" project — run `npm run db:seed`');
+    throw new ApiError(500, 'No "Others" project. Run `npm run db:seed`.');
   }
   return project.id;
 }
@@ -102,7 +103,7 @@ async function assertNoConflicts(
     const end = first.endedAt ?? new Date();
     throw new ApiError(
       409,
-      `Overlaps “${label}”, ${formatClock(first.startedAt, timezone)}–${formatClock(end, timezone)}`,
+      `Overlaps "${label}", ${formatClock(first.startedAt, timezone)}–${formatClock(end, timezone)}`,
       { conflictIds: conflicts.map((c) => c.id) },
     );
   }
@@ -131,11 +132,17 @@ export async function listEntries(from: Date, to: Date): Promise<EntryDto[]> {
  * retype "Interview preparation" in two keystrokes, and the block you log every
  * week should be the one waiting at the top. Ties go to the most recent.
  *
+ * Each description carries the project it was most recently logged under, so
+ * the editor can switch to it the moment you pick a description from the list
+ * rather than making you re-pick the project every time. Archived projects are
+ * left out of that count. A description whose usual project was retired should
+ * not pull new time back into it.
+ *
  * The whole list goes to the browser and is filtered there, a few hundred short
  * strings against a request per keystroke. See ARCHITECTURE.md §8.
  */
-export async function descriptionHistory(limit: number): Promise<string[]> {
-  const rows = await db.timeEntry.groupBy({
+export async function descriptionHistory(limit: number): Promise<DescriptionSuggestion[]> {
+  const top = await db.timeEntry.groupBy({
     by: ["description"],
     where: { description: { not: "" } },
     _count: { description: true },
@@ -143,7 +150,36 @@ export async function descriptionHistory(limit: number): Promise<string[]> {
     orderBy: [{ _count: { description: "desc" } }, { _max: { startedAt: "desc" } }],
     take: limit,
   });
-  return rows.map((row) => row.description);
+
+  const descriptions = top.map((row) => row.description);
+  if (descriptions.length === 0) return [];
+
+  // The most-recent project for each description. Rows are ordered by
+  // description, then recency of the last entry under that project, then entry
+  // count, so the first row per description is the one to keep. Archived
+  // projects never win, so a description whose home project was retired has no
+  // project here and the editor leaves the current one alone.
+  const byProject = await db.timeEntry.groupBy({
+    by: ["description", "projectId"],
+    where: { description: { in: descriptions }, project: { archivedAt: null } },
+    _count: { description: true },
+    _max: { startedAt: true },
+    orderBy: [
+      { description: "asc" },
+      { _max: { startedAt: "desc" } },
+      { _count: { description: "desc" } },
+    ],
+  });
+
+  const topProject = new Map<string, string>();
+  for (const row of byProject) {
+    if (!topProject.has(row.description)) topProject.set(row.description, row.projectId);
+  }
+
+  return top.map((row) => ({
+    description: row.description,
+    projectId: topProject.get(row.description) ?? null,
+  }));
 }
 
 export async function getRunningEntry(): Promise<EntryDto | null> {
@@ -169,6 +205,9 @@ export async function createEntry(
     await assertNoConflicts(tx, { startedAt, endedAt }, timezone);
     const created = await tx.timeEntry.create({
       data: {
+        // Undefined falls back to the column default; the browser only supplies
+        // an id when its editor is already open on that row.
+        id: input.id,
         description: input.description,
         projectId: await resolveProjectId(tx, input.projectId),
         taskId: input.taskId ?? null,
@@ -276,6 +315,7 @@ export async function startTimer(
 
     const created = await tx.timeEntry.create({
       data: {
+        id: input.id,
         description: input.description,
         projectId: await resolveProjectId(tx, input.projectId),
         taskId: input.taskId ?? null,
@@ -314,7 +354,7 @@ export async function stopTimer(): Promise<EntryDto> {
     if (next) endedAt = next.startedAt;
 
     if (endedAt <= running.startedAt) {
-      throw new ApiError(409, "Another entry starts at the same moment — edit it first");
+      throw new ApiError(409, "Another entry starts at the same moment. Edit it first.");
     }
 
     await tx.timeEntry.update({ where: { id: running.id }, data: { endedAt } });

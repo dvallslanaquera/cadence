@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Square, Trash2 } from "lucide-react";
 import {
   useDeleteEntry,
@@ -39,6 +39,47 @@ function wrapEndOffset(startMinutes: number, endMinutes: number): number {
   return endMinutes > startMinutes ? 0 : 1;
 }
 
+interface EntryFields {
+  description: string;
+  projectId: string;
+  tags: string;
+  /**
+   * The start's calendar day anchors the entry. It has no control of its own —
+   * the entry already sits on a day in the grid, and you move it by dragging it
+   * there. Only the times are editable here.
+   */
+  startDate: string;
+  startTime: string;
+  endTime: string;
+  /**
+   * Days from the start's day to the end's day. Seeded from the entry so an
+   * existing multi-day entry survives being merely looked at; editing either
+   * time re-derives it as a single wrap, which is all a 24-hour dial can mean.
+   */
+  endDayOffset: number;
+}
+
+function entryFields(entry: Entry, tz: string): EntryFields {
+  const startedAt = new Date(entry.startedAt);
+  const endedAt = entry.endedAt ? new Date(entry.endedAt) : null;
+  const startDate = formatDateISO(startedAt, tz);
+
+  return {
+    description: entry.description,
+    projectId: entry.project.id,
+    tags: entry.tags.join(", "),
+    startDate,
+    startTime: formatClock(startedAt, tz),
+    endTime: endedAt ? formatClock(endedAt, tz) : "",
+    endDayOffset: endedAt ? daysBetweenDateKeys(startDate, formatDateISO(endedAt, tz)) : 0,
+  };
+}
+
+/** Keep my edit; take the entry's value only where I have not typed anything. */
+function keepEdit<T>(mine: T, was: T, theirs: T): T {
+  return mine === was ? theirs : mine;
+}
+
 /**
  * One editor for every path in and out of the grid — click-to-start,
  * drag-to-create, and editing an existing entry all land here, so the create
@@ -67,49 +108,38 @@ export function EntryPopover({
   const running = entry.endedAt === null;
   const isDark = useMediaQuery("(prefers-color-scheme: dark)");
 
-  const [description, setDescription] = useState(entry.description);
-  const [projectId, setProjectId] = useState(entry.project.id);
-  const [tags, setTags] = useState(entry.tags.join(", "));
-  // The start's calendar day anchors the entry. It has no control of its own —
-  // the entry already sits on a day in the grid, and you move it by dragging it
-  // there. Only the times are editable here.
-  const [startDate, setStartDate] = useState(() => formatDateISO(new Date(entry.startedAt), tz));
-  const [startTime, setStartTime] = useState(() => formatClock(new Date(entry.startedAt), tz));
-  const [endTime, setEndTime] = useState(() =>
-    entry.endedAt ? formatClock(new Date(entry.endedAt), tz) : "",
-  );
-  /**
-   * Days from the start's day to the end's day. Seeded from the entry so an
-   * existing multi-day entry survives being merely looked at; editing either
-   * time re-derives it as a single wrap, which is all a 24-hour dial can mean.
-   */
-  const [endDayOffset, setEndDayOffset] = useState(() =>
-    entry.endedAt
-      ? daysBetweenDateKeys(
-          formatDateISO(new Date(entry.startedAt), tz),
-          formatDateISO(new Date(entry.endedAt), tz),
-        )
-      : 0,
-  );
+  const [form, setForm] = useState(() => entryFields(entry, tz));
+  const { description, projectId, tags, startDate, startTime, endTime, endDayOffset } = form;
 
-  // A running entry's end moves as the timer runs; keep the fields in step when
-  // the underlying entry changes beneath us (e.g. another device stopped it).
+  /**
+   * The entry changes beneath the open editor more often than it looks. The
+   * server's rounding can land on a block you just created. A refetch hands back
+   * a fresh object. Another device may stop the timer. Untouched fields follow
+   * it, edited ones do not. This editor is now open while its own create is
+   * still in the air, and a blind reset there throws away what you typed.
+   */
+  const derived = useMemo(() => entryFields(entry, tz), [entry, tz]);
+  const synced = useRef(derived);
+
   useEffect(() => {
-    setDescription(entry.description);
-    setProjectId(entry.project.id);
-    setTags(entry.tags.join(", "));
-    setStartDate(formatDateISO(new Date(entry.startedAt), tz));
-    setStartTime(formatClock(new Date(entry.startedAt), tz));
-    setEndTime(entry.endedAt ? formatClock(new Date(entry.endedAt), tz) : "");
-    setEndDayOffset(
-      entry.endedAt
-        ? daysBetweenDateKeys(
-            formatDateISO(new Date(entry.startedAt), tz),
-            formatDateISO(new Date(entry.endedAt), tz),
-          )
-        : 0,
-    );
-  }, [entry, tz]);
+    const previous = synced.current;
+    if (previous === derived) return;
+    synced.current = derived;
+
+    setForm((current) => ({
+      description: keepEdit(current.description, previous.description, derived.description),
+      projectId: keepEdit(current.projectId, previous.projectId, derived.projectId),
+      tags: keepEdit(current.tags, previous.tags, derived.tags),
+      startDate: keepEdit(current.startDate, previous.startDate, derived.startDate),
+      startTime: keepEdit(current.startTime, previous.startTime, derived.startTime),
+      endTime: keepEdit(current.endTime, previous.endTime, derived.endTime),
+      endDayOffset: keepEdit(
+        current.endDayOffset,
+        previous.endDayOffset,
+        derived.endDayOffset,
+      ),
+    }));
+  }, [derived]);
 
   // Parsed views of the two time fields. Null while a field is cleared or
   // half-typed; the dial holds the entry's own time rather than snapping to
@@ -130,30 +160,44 @@ export function EntryPopover({
       ? undefined
       : endDayOffset * MINUTES_PER_DAY + parsedEnd - parsedStart;
 
+  function edit(patch: Partial<EntryFields>) {
+    setForm((current) => ({ ...current, ...patch }));
+  }
+
   /** A dial drag writes back into the same two fields the inputs edit. */
   function onDialChange(handle: ClockHandle, minutes: number) {
     const clock = formatMinutesAsClock(minutes);
     if (handle === "start") {
-      setStartTime(clock);
-      if (parsedEnd !== null) setEndDayOffset(wrapEndOffset(minutes, parsedEnd));
+      edit({
+        startTime: clock,
+        ...(parsedEnd === null ? {} : { endDayOffset: wrapEndOffset(minutes, parsedEnd) }),
+      });
     } else {
-      setEndTime(clock);
-      if (parsedStart !== null) setEndDayOffset(wrapEndOffset(parsedStart, minutes));
+      edit({
+        endTime: clock,
+        ...(parsedStart === null ? {} : { endDayOffset: wrapEndOffset(parsedStart, minutes) }),
+      });
     }
   }
 
   function onStartTimeInput(value: string) {
-    setStartTime(value);
     const minutes = parseClockToMinutes(value);
-    if (minutes !== null && parsedEnd !== null) setEndDayOffset(wrapEndOffset(minutes, parsedEnd));
+    edit({
+      startTime: value,
+      ...(minutes === null || parsedEnd === null
+        ? {}
+        : { endDayOffset: wrapEndOffset(minutes, parsedEnd) }),
+    });
   }
 
   function onEndTimeInput(value: string) {
-    setEndTime(value);
     const minutes = parseClockToMinutes(value);
-    if (minutes !== null && parsedStart !== null) {
-      setEndDayOffset(wrapEndOffset(parsedStart, minutes));
-    }
+    edit({
+      endTime: value,
+      ...(minutes === null || parsedStart === null
+        ? {}
+        : { endDayOffset: wrapEndOffset(parsedStart, minutes) }),
+    });
   }
 
   function save() {
@@ -201,7 +245,12 @@ export function EntryPopover({
           autoFocus
           value={description}
           placeholder="What are you working on?"
-          onChange={setDescription}
+          onChange={(value) => edit({ description: value })}
+          onSelectSuggestion={(_description, projectId) => {
+            // A null project means the description's usual project was retired;
+            // leave the current one alone rather than guessing.
+            if (projectId) edit({ projectId });
+          }}
           onSubmit={save}
           onCancel={onClose}
           onOpenChange={onSuggestionsOpenChange}
@@ -222,7 +271,7 @@ export function EntryPopover({
         <Field label="Project" as="div">
           <ProjectPicker
             value={projectId}
-            onChange={setProjectId}
+            onChange={(value) => edit({ projectId: value })}
             fallback={entry.project}
           />
         </Field>
@@ -286,7 +335,7 @@ export function EntryPopover({
         <Input
           value={tags}
           placeholder="comma, separated"
-          onChange={(event) => setTags(event.target.value)}
+          onChange={(event) => edit({ tags: event.target.value })}
           onKeyDown={(event) => {
             if (event.key === "Enter") save();
           }}
