@@ -1,8 +1,4 @@
-/**
- * The runaway-timer predicate. See ARCHITECTURE.md §12.
- *
- * Pure so the threshold behaviour is testable without a database or a clock.
- */
+/** Runaway-timer predicate (ARCHITECTURE.md §12); pure for testing without a DB or clock. */
 
 const MS_PER_HOUR = 3_600_000;
 
@@ -32,6 +28,6 @@ export function elapsedHours(startedAt: Date, now: Date): number {
 export const HEARTBEAT_STALE_HOURS = 24;
 
 export function isHeartbeatStale(lastCheckAt: Date | null, now: Date): boolean {
-  if (!lastCheckAt) return false; // never run yet — don't nag before first deploy
+  if (!lastCheckAt) return false; // never run yet; don't nag before first deploy
   return now.getTime() - lastCheckAt.getTime() > HEARTBEAT_STALE_HOURS * MS_PER_HOUR;
 }

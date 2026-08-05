@@ -25,13 +25,7 @@ export async function listProjects(includeArchived: boolean): Promise<ProjectDto
   }));
 }
 
-/**
- * The projects to offer first in the picker, most-used first.
- *
- * Ranked by number of entries rather than minutes logged, so a project you keep
- * switching into outranks one long block. Archived projects never appear —
- * they are not somewhere new time should be logged.
- */
+/** Projects to offer first in the picker, ranked by entry count (not minutes) so frequent switches outrank long blocks. Archived excluded. */
 export async function frequentProjectIds(windowDays: number, limit: number): Promise<string[]> {
   const since = new Date(Date.now() - windowDays * 24 * 60 * 60 * 1000);
 
@@ -99,10 +93,7 @@ export async function projectDeletionImpact(id: string): Promise<ProjectDeletion
   return { entries, tasks };
 }
 
-/**
- * Deleting a project never destroys time data: its entries and tasks are moved
- * to Others first. See ARCHITECTURE.md §5.
- */
+/** Deleting a project moves its entries and tasks to Others rather than destroying them. See ARCHITECTURE.md §5. */
 export async function deleteProject(id: string): Promise<ProjectDeletionImpact> {
   return db.$transaction(async (tx) => {
     const project = await tx.project.findUnique({ where: { id } });

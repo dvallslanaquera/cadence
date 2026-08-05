@@ -1,9 +1,6 @@
 import { auth } from "@/auth";
 
-/**
- * Page protection only. API routes answer with 401 JSON instead of redirecting,
- * so a stale tab never receives an HTML login page where it expected JSON.
- */
+/** Page protection only; API routes return 401 JSON so a stale tab never gets an HTML login page where it expected JSON. */
 export default auth((request) => {
   const { pathname } = request.nextUrl;
   if (pathname === "/login") return;

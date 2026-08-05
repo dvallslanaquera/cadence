@@ -22,8 +22,7 @@ export const PATCH = route<Context>(async (request, { params }) => {
 
 export const DELETE = route<Context>(async (request, { params }) => {
   const { id } = await params;
-  // Deleting without confirm=true is refused, so a stray request can't reassign
-  // a project's history by accident.
+  // Require confirm=true so a stray request can't reassign a project's history by accident.
   if (searchParams(request).get("confirm") !== "true") {
     return Response.json(
       { error: "Deleting a project requires confirm=true" },

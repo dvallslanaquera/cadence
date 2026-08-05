@@ -5,10 +5,6 @@ import { ColorDot } from "@/components/ui/primitives";
 import { useT } from "@/lib/i18n-client";
 import type { ProjectStat, SummaryStat } from "@/lib/types";
 
-/**
- * Not a chart — four single numbers, so they get stat tiles rather than a plot.
- * Values wear text tokens; the only colour is the dot next to the project name.
- */
 export function SummaryStrip({
   summary,
   topProject,
@@ -42,7 +38,7 @@ export function SummaryStrip({
       />
       <Tile
         label={t("summary.topProject")}
-        value={topProject?.name ?? "—"}
+        value={topProject?.name ?? "-"}
         hint={topProject ? formatDurationHuman(topProject.minutes) : undefined}
         dot={topProject?.color}
       />

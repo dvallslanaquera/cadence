@@ -12,26 +12,14 @@ export interface TimeInputProps {
   /** "HH:MM", or whatever is half-typed on the way there. */
   value: string;
   onChange: (value: string) => void;
-  /**
-   * A valid "HH:MM" to fall back to when the field is left holding something
-   * that is not a time. Usually the entry's own current time.
-   */
+  /** Valid "HH:MM" to fall back to when the field holds something that isn't a time. */
   fallback: string;
   placeholder?: string;
   className?: string;
   "aria-label"?: string;
 }
 
-/**
- * A time field that behaves like text.
- *
- * `input type="time"` is a segmented control: the pointer is an arrow, the value
- * is three widgets in a trench coat, and putting the caret somewhere useful takes
- * more than one click. This is an ordinary text box with an I-beam, so one click
- * puts the caret where you clicked and you type over it. The colon is inserted for
- * you and arrow keys still nudge, which is the only part of the native control
- * worth keeping.
- */
+// A time field that behaves like text: input type=time is a segmented control with an arrow pointer, so this is a plain box with an I-beam. Colon inserted, arrow keys nudge.
 export function TimeInput({
   value,
   onChange,
@@ -41,9 +29,7 @@ export function TimeInput({
   "aria-label": ariaLabel,
 }: TimeInputProps) {
   function nudge(event: KeyboardEvent<HTMLInputElement>, direction: 1 | -1) {
-    // Nudging a half-typed field starts from the fallback, so the arrows are
-    // never dead. An empty field with no fallback is the end of a running entry:
-    // there is no time there to step away from, so the arrows do nothing.
+    // Nudge from fallback when the field is half-typed so arrows are never dead; empty with no fallback (running entry's end) means nothing to step from.
     const current = parseClockToMinutes(value) ?? parseClockToMinutes(fallback);
     if (current === null) return;
 
@@ -54,14 +40,7 @@ export function TimeInput({
     onChange(formatMinutesAsClock(next));
   }
 
-  /**
-   * Pad and tidy on the way out. "9:3" goes back to the fallback rather than
-   * becoming 09:30, because 9:03 was just as likely and guessing edits your data.
-   *
-   * Silent when there is nothing to fix, because the editor treats any change to
-   * a time as an edit: reporting one for a field that was only clicked into would
-   * re-derive the end's day offset and quietly take a day off a multi-day entry.
-   */
+  // Pad and tidy on blur; "9:3" falls back rather than guessing 09:30. Silent when nothing to fix, since reporting a change for a merely-clicked field would re-derive the end's day offset.
   function commit() {
     const minutes = parseClockToMinutes(value);
     const tidied = minutes === null ? fallback : formatMinutesAsClock(minutes);

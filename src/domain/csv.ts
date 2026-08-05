@@ -1,9 +1,4 @@
-/**
- * CSV export column layout. See ARCHITECTURE.md §11.
- *
- * A multi-day entry exports as ONE row with different start and end dates —
- * splitting it would misrepresent the entry.
- */
+/** CSV export column layout (ARCHITECTURE.md §11). A multi-day entry is ONE row with different start/end dates; splitting it would misrepresent the entry. */
 import { formatClock, formatDateISO, formatDurationClock, minutesBetween } from "./time";
 
 export const CSV_HEADER = [

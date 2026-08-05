@@ -14,10 +14,7 @@ export interface EntryBlockProps {
   segment: PositionedSegment;
   selected: boolean;
   onSelect: (entryId: string | null) => void;
-  /**
-   * Move the whole entry by a delta in minutes. Returning the mutation's promise
-   * lets the block hold its dragged position until the write has landed.
-   */
+  /** Move the entry by a delta in minutes; the returned promise lets the block hold its drag until the write lands. */
   onMove: (segment: PositionedSegment, deltaMinutes: number) => void | Promise<unknown>;
   /** Resize one edge. `edge` is which handle was dragged. */
   onResize: (
@@ -27,6 +24,8 @@ export interface EntryBlockProps {
   ) => void | Promise<unknown>;
   snapMinutes: number;
   pxPerMinute: number;
+  /** False on phone, where the editor opens centered rather than the side-anchored popover that sat against the screen edge. */
+  isDesktop?: boolean;
   readOnly?: boolean;
 }
 
@@ -36,11 +35,7 @@ interface DragPreview {
   minutes: number;
 }
 
-/**
- * Memoised: a week holds dozens of these, and opening the editor on one of them
- * re-renders the column. Every prop below is either a value or a callback the
- * grid keeps stable, so only the block that actually changed does any work.
- */
+// Memoised: a week holds dozens, and stable props mean only the changed block re-renders.
 export const EntryBlock = memo(function EntryBlock({
   segment,
   selected,
@@ -49,6 +44,7 @@ export const EntryBlock = memo(function EntryBlock({
   onResize,
   snapMinutes,
   pxPerMinute,
+  isDesktop = true,
   readOnly,
 }: EntryBlockProps) {
   const anchorRef = useRef<HTMLDivElement>(null);
@@ -60,17 +56,10 @@ export const EntryBlock = memo(function EntryBlock({
     draggable: boolean;
   } | null>(null);
 
-  // Rendered from local state during a drag, so the block tracks the pointer at
-  // frame rate instead of jumping once the PATCH comes back.
+  // Local drag state so the block tracks the pointer at frame rate, not on PATCH return.
   const [preview, setPreview] = useState<DragPreview | null>(null);
 
-  /**
-   * Whether the editor's description dropdown is showing. Radix listens for
-   * Escape on the document in the capture phase, which runs before the field's
-   * own handler, so the flag has to be readable from out here for the first
-   * Escape to dismiss the list instead of the whole editor. A ref, not state:
-   * nothing on screen depends on it.
-   */
+  // Radix captures Escape before the field's handler; this flag lets the first Escape close the dropdown, not the editor. Ref, not state: nothing renders from it.
   const suggestionsOpen = useRef(false);
   const setSuggestionsOpen = useCallback((open: boolean) => {
     suggestionsOpen.current = open;
@@ -78,7 +67,6 @@ export const EntryBlock = memo(function EntryBlock({
 
   const { entry, running } = segment;
 
-  // Apply the in-flight drag to the geometry before it is drawn.
   const shift = preview?.minutes ?? 0;
   const previewTop =
     segment.topMinutes + (preview?.mode === "move" || preview?.mode === "start" ? shift : 0);
@@ -90,10 +78,7 @@ export const EntryBlock = memo(function EntryBlock({
 
   const laneWidth = 100 / segment.laneCount;
 
-  /**
-   * Keep a drag inside the day and never let an edge cross the other one, so the
-   * preview can only ever show a shape the server would accept.
-   */
+  // Keep drags in-day and stop edges crossing, so previews only show shapes the server accepts.
   function clampShift(mode: "move" | "start" | "end", minutes: number): number {
     const { topMinutes, bottomMinutes } = segment;
     if (mode === "move") {
@@ -114,10 +99,7 @@ export const EntryBlock = memo(function EntryBlock({
     mode: "move" | "start" | "end",
   ) {
     if (readOnly) return;
-    // A running entry has no fixed end, so it cannot be moved or resized from
-    // the bottom. The press still has to register. Bailing out here left
-    // `drag.current` null, so `endDrag` returned early and a click on a running
-    // block never opened the editor, which is the only route to its trash icon.
+    // Running entries have no end so can't move/resize from the bottom, but the press must still register or a click never opens the editor (the only way to trash it).
     const draggable = !running || mode === "start";
     event.stopPropagation();
     event.preventDefault();
@@ -146,16 +128,12 @@ export const EntryBlock = memo(function EntryBlock({
     (event.currentTarget as HTMLElement).releasePointerCapture(event.pointerId);
 
     if (state.applied === 0) {
-      // No movement: this was a click, so open the editor.
       setPreview(null);
       onSelect(entry.id);
       return;
     }
 
-    // Hold the dragged position until the mutation settles. Dropping it on
-    // release would show one frame of the old position before the optimistic
-    // cache write arrives — and on a rejected edit, this is what puts the block
-    // back where it started.
+    // Hold the drag until the mutation settles; dropping on release would flash the old position, and on rejection this restores it.
     const settled =
       state.mode === "move"
         ? onMove(segment, state.applied)
@@ -163,7 +141,7 @@ export const EntryBlock = memo(function EntryBlock({
 
     void Promise.resolve(settled)
       .catch(() => {
-        // The mutation reports its own failure; this only ends the preview.
+        // Mutation reports its own failure; this only ends the preview.
       })
       .finally(() => setPreview(null));
   }
@@ -209,8 +187,7 @@ export const EntryBlock = memo(function EntryBlock({
             }}
             className={cn(
               "no-select group relative flex h-full w-full cursor-pointer flex-col overflow-hidden rounded-md border-l-[3px] px-1.5 py-0.5 text-left",
-              // No transition while dragging: the block must sit under the
-              // pointer, not ease towards it.
+              // No transition while dragging: the block must sit under the pointer, not ease toward it.
               preview ? "ring-2 ring-accent" : "transition",
               selected && !preview ? "ring-2 ring-accent" : null,
               !selected && !preview && "hover:brightness-105",
@@ -246,8 +223,7 @@ export const EntryBlock = memo(function EntryBlock({
               </span>
             ) : null}
 
-            {/* Resize handles. The bottom one is hidden on a running entry — it
-                has no fixed end to drag. */}
+            {/* Resize handles; bottom hidden on a running entry (no fixed end). */}
             {!readOnly && !segment.continuesBefore ? (
               <span
                 onPointerDown={(event) => beginDrag(event, "start")}
@@ -274,30 +250,52 @@ export const EntryBlock = memo(function EntryBlock({
 
       <Popover.Portal>
         <Popover.Content
-          side="right"
-          align="start"
+          side={isDesktop ? "right" : "bottom"}
+          align={isDesktop ? "start" : "center"}
           sideOffset={8}
           collisionPadding={12}
-          className="z-50 w-[min(340px,calc(100vw-24px))] rounded-xl border border-border bg-surface p-3 shadow-[var(--shadow)]"
+          className={cn(
+            "z-50",
+            isDesktop
+              ? "w-[min(340px,calc(100vw-24px))] rounded-xl border border-border bg-surface p-3 shadow-[var(--shadow)]"
+              : // Pin to viewport on phone; !important beats Radix's inline anchor positioning that sits the panel at the screen edge.
+                "!fixed !inset-0 !flex !translate-x-0 !translate-y-0 items-center justify-center bg-black/40 p-4",
+          )}
           onOpenAutoFocus={(event) => event.preventDefault()}
           onEscapeKeyDown={(event) => {
             if (suggestionsOpen.current) event.preventDefault();
           }}
           onPointerDownOutside={(event) => {
-            // The block is the anchor, not the trigger, so Radix counts a press
-            // on it as an outside press and dismisses. That made a double-click
-            // open the editor, tear it down again on the second press, and
-            // rebuild it on the release, a visible flash on the way to the same
-            // editor you already had.
+            // The block is the anchor, not the trigger, so Radix counts a press on it as outside and dismisses; prevent that to avoid a dblclick teardown flash.
             if (anchorRef.current?.contains(event.target as Node)) event.preventDefault();
           }}
+          onClick={
+            isDesktop
+              ? undefined
+              : (event) => {
+                  // Backdrop is the Content itself; a press on it (not the panel) closes, like a modal.
+                  if (event.target === event.currentTarget) onSelect(null);
+                }
+          }
         >
-          <EntryPopover
-            entry={entry}
-            onClose={() => onSelect(null)}
-            onSuggestionsOpenChange={setSuggestionsOpen}
-          />
-          <Popover.Arrow className="fill-[var(--border)]" />
+          {isDesktop ? (
+            <>
+              <EntryPopover
+                entry={entry}
+                onClose={() => onSelect(null)}
+                onSuggestionsOpenChange={setSuggestionsOpen}
+              />
+              <Popover.Arrow className="fill-[var(--border)]" />
+            </>
+          ) : (
+            <div className="w-[min(360px,calc(100vw-32px))] rounded-xl border border-border bg-surface p-3 shadow-[var(--shadow)]">
+              <EntryPopover
+                entry={entry}
+                onClose={() => onSelect(null)}
+                onSuggestionsOpenChange={setSuggestionsOpen}
+              />
+            </div>
+          )}
         </Popover.Content>
       </Popover.Portal>
     </Popover.Root>

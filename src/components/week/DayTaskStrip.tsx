@@ -10,11 +10,7 @@ import { ProjectPicker } from "@/components/ui/ProjectPicker";
 import { useT } from "@/lib/i18n-client";
 import type { Task } from "@/lib/types";
 
-/**
- * The expandable due-tasks menu under each weekday header. Renders nothing at
- * all on days with no due tasks, so the grid doesn't grow a row of empty
- * furniture. See ARCHITECTURE.md §9.
- */
+// Expandable due-tasks menu under each weekday header; renders nothing on empty days so no empty row. See ARCHITECTURE.md §9.
 export function DayTaskStrip({
   dayKey,
   tasks,
@@ -53,8 +49,7 @@ export function DayTaskStrip({
             key={task.id}
             className="flex items-center gap-1 rounded-md border border-border bg-surface px-1.5 py-1"
           >
-            {/* The row itself is the project control: clicking the task opens
-                its project list. The start button stays a separate target. */}
+            {/* The row is the project control; the start button stays a separate target. */}
             <ProjectPicker
               value={task.project.id}
               fallback={task.project}

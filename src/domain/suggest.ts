@@ -1,21 +1,9 @@
-/**
- * Matching for the entry editor's description autocomplete.
- *
- * The history arrives already ordered by how often each description has been
- * used, so this only filters and breaks ties: a match at the start of the text
- * beats a match at the start of a later word, which beats a match buried inside
- * one. Typing "i" therefore offers "Interview preparation" before "Weekly
- * review", which is the order you had in mind when you typed the letter.
- */
+/** Description autocomplete matching. History arrives most-used-first, so this only filters and breaks ties: start-of-text beats start-of-later-word beats mid-word. Typing "i" offers "Interview preparation" before "Weekly review". */
 
 /** What counts as the start of a word: whitespace and the usual separators. */
 const WORD_BREAK = /[\s\-–/(\[.,:]/;
 
-/**
- * The best rank the needle earns anywhere in the text, not the rank of the first
- * place it happens to appear: "i" is inside "Client" before it starts
- * "(invoicing)", and the second is the one that made you type the letter.
- */
+/** Best rank the needle earns anywhere in the text, not the first place it appears: "i" is inside "Client" before "(invoicing)", and the second is the one you meant. */
 function score(haystack: string, needle: string): number | null {
   let best: number | null = null;
 
@@ -46,8 +34,7 @@ export function rankSuggestions(
     ranked.push({ value, rank });
   }
 
-  // Sort is stable, so the history's most-used-first order survives inside each
-  // band rather than being reshuffled alphabetically.
+  // Stable sort keeps the most-used-first order within each band instead of going alphabetical.
   return ranked
     .sort((a, b) => a.rank - b.rank)
     .slice(0, limit)

@@ -16,17 +16,11 @@ const tabs = [
   { href: "/settings", nav: "settings", icon: Settings2 },
 ];
 
-/**
- * Navigation lives down the left edge on desktop and along the bottom on mobile,
- * so neither costs the week grid any height — the grid is the one view where
- * vertical space is the scarce resource. The timer strip is the only chrome
- * above the content, and it earns its row by being editable.
- */
+// Nav lives left on desktop, bottom on mobile to keep the week grid's vertical space; the timer strip is the only chrome above content and is editable.
 export function AppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const { t } = useT();
 
-  // The login page renders standalone — no nav, no timer bar.
   if (pathname === "/login") return <>{children}</>;
 
   const navLabel = (id: string) => t(`nav.${id}`);
@@ -71,7 +65,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           <RunningBar />
         </div>
 
-        <main className="mx-auto w-full max-w-[1400px] flex-1 px-3 pb-24 sm:px-5 md:pb-8">
+        <main className="mx-auto flex w-full max-w-[1400px] flex-1 min-h-0 flex-col px-3 pb-24 sm:px-5 md:pb-8">
           {children}
         </main>
       </div>

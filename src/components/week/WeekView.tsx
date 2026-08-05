@@ -1,16 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
-import { ChevronLeft, ChevronRight, Maximize2, Plus } from "lucide-react";
-import {
-  DEFAULT_BLOCK_MINUTES,
-  DEFAULT_SCROLL_HOUR,
-  fitHourHeight,
-  HOUR_HEIGHT_PX,
-  MAX_HOUR_HEIGHT_PX,
-  MIN_HOUR_HEIGHT_PX,
-} from "@/lib/constants";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
+import { DEFAULT_BLOCK_MINUTES, MAX_HOUR_HEIGHT_PX, MIN_HOUR_HEIGHT_PX } from "@/lib/constants";
 import { useMediaQuery, useNow } from "@/lib/hooks";
 import {
   useCreateEntry,
@@ -22,45 +14,34 @@ import {
 } from "@/lib/queries";
 import {
   dayKey as toDayKey,
-  formatDayOfMonth,
-  formatDurationHuman,
-  formatMinutesAsClock,
-  formatRangeLabel,
-  formatWeekdayShort,
   instantFromLocalParts,
-  isoWeekNumber,
-  isoWeekYear,
   isWeekKey,
+  shiftInstant,
   shiftWeeks,
   startOfLocalWeek,
-  wallClockMinutes,
   weekDays,
-  weekKey as toWeekKey,
   weekStartFromKey,
 } from "@/domain/time";
-import { cn, newEntryId } from "@/lib/utils";
+import { newEntryId } from "@/lib/utils";
 import { useT } from "@/lib/i18n-client";
-import { Button, IconButton, Spinner } from "@/components/ui/primitives";
 import type { Task } from "@/lib/types";
-import { DayColumn } from "./DayColumn";
-import { DayTaskStrip } from "./DayTaskStrip";
-import { ExportButton } from "./ExportButton";
-import { NowLine } from "./NowLine";
-import {
-  dayTotalMinutes,
-  GRID_MINUTES,
-  segmentsByDay,
-  type PositionedSegment,
-} from "./geometry";
+import { DayHeaderRow } from "./DayHeaderRow";
+import { MobileDayStrip } from "./MobileDayStrip";
+import { WeekGrid } from "./WeekGrid";
+import { WeekViewHeader } from "./WeekViewHeader";
+import { ZoomBar } from "./ZoomBar";
+import { useKeyboardShortcuts } from "./useKeyboardShortcuts";
+import { useWeekNavigation } from "./useWeekNavigation";
+import { useZoom } from "./useZoom";
+import { dayTotalMinutes, segmentsByDay, type PositionedSegment } from "./geometry";
 
 const GUTTER_PX = 52;
 
 export function WeekView() {
-  const router = useRouter();
   const searchParams = useSearchParams();
   const { data: settings } = useSettings();
   const tz = settings?.timezone ?? "UTC";
-  const { t, locale } = useT();
+  const { t } = useT();
 
   const now = useNow(30_000);
   const isDesktop = useMediaQuery("(min-width: 768px)");
@@ -69,51 +50,9 @@ export function WeekView() {
   const [selectedEntryId, setSelectedEntryId] = useState<string | null>(null);
   const [mobileDayIndex, setMobileDayIndex] = useState<number | null>(null);
 
-  /**
-   * The grid zooms to fit the working day rather than using a fixed hour height,
-   * so 09:00–18:00 is on screen without scrolling on any viewport. Measured in a
-   * layout effect so the first paint is already at the right scale.
-   */
-  const [hourHeight, setHourHeight] = useState(HOUR_HEIGHT_PX);
-  const pxPerMinute = hourHeight / 60;
-  const lastHourHeight = useRef<number | null>(null);
-  // Once the user takes manual control of the zoom, the fit-to-viewport
-  // ResizeObserver stops overriding their choice. A window resize then leaves
-  // the chosen hour height alone instead of snapping back to the fit value.
-  const userZoomed = useRef(false);
+  const { hourHeight, pxPerMinute, applyZoom, resetFit } = useZoom(scrollRef);
 
-  const applyZoom = useCallback((next: number) => {
-    const clamped = Math.min(MAX_HOUR_HEIGHT_PX, Math.max(MIN_HOUR_HEIGHT_PX, next));
-    userZoomed.current = true;
-    setHourHeight(clamped);
-  }, []);
-
-  // Functional delta so the wheel handler, attached once, reads the live height
-  // instead of the value it closed over at mount.
-  const zoomBy = useCallback((delta: number) => {
-    userZoomed.current = true;
-    setHourHeight((h) =>
-      Math.min(MAX_HOUR_HEIGHT_PX, Math.max(MIN_HOUR_HEIGHT_PX, h + delta)),
-    );
-  }, []);
-
-  // Hand control back to the fit-to-viewport rule and re-measure at once, so
-  // the grid returns to a single working day on screen after the user zoomed in.
-  const resetFit = useCallback(() => {
-    userZoomed.current = false;
-    const element = scrollRef.current;
-    if (element && element.clientHeight > 0) setHourHeight(fitHourHeight(element.clientHeight));
-  }, []);
-
-  /**
-   * Where the grid starts, measured rather than assumed. The chrome above it —
-   * timer strip, week header, day headers — has changed shape more than once;
-   * a hard-coded offset here goes stale silently and costs the grid height.
-   */
-  const [gridTop, setGridTop] = useState<number | null>(null);
-
-  // The visible week lives in the URL, so a reload or a shared link lands on
-  // the same week. See ARCHITECTURE.md §8.
+  // Week lives in the URL so reloads and shared links land on the same week. See ARCHITECTURE.md §8.
   const weekParam = searchParams.get("week");
   const weekStart = useMemo(() => {
     if (weekParam && isWeekKey(weekParam)) return weekStartFromKey(weekParam, tz);
@@ -122,6 +61,8 @@ export function WeekView() {
 
   const days = useMemo(() => weekDays(weekStart, tz), [weekStart, tz]);
   const weekEnd = useMemo(() => shiftWeeks(weekStart, tz, 1), [weekStart, tz]);
+
+  const { goToWeek, goToToday } = useWeekNavigation(weekStart, tz);
 
   const { data: entries, isLoading: entriesLoading } = useEntries(weekStart, weekEnd);
   const { data: tasks } = useTasks({
@@ -151,110 +92,35 @@ export function WeekView() {
 
   const todayKey = toDayKey(now, tz);
 
-  useLayoutEffect(() => {
-    const element = scrollRef.current;
-    if (!element) return;
-
-    const measure = (height: number) => {
-      if (height > 0) setHourHeight(fitHourHeight(height));
-    };
-    if (!userZoomed.current) measure(element.clientHeight);
-
-    const observer = new ResizeObserver((entries) => {
-      if (!userZoomed.current) measure(entries[0].contentRect.height);
-    });
-    observer.observe(element);
-    return () => observer.disconnect();
-  }, []);
-
-  // Ctrl+scroll zooms; a plain scroll still pans the grid. React's onWheel is a
-  // passive listener, so preventDefault would be ignored and the page would
-  // scroll along with the zoom. A native non-passive listener on the same
-  // element is the way to swallow the scroll while zooming.
-  useEffect(() => {
-    const element = scrollRef.current;
-    if (!element) return;
-    function onWheel(event: WheelEvent) {
-      if (!event.ctrlKey) return;
-      event.preventDefault();
-      const step = (event.deltaY < 0 ? 1 : -1) * 4;
-      zoomBy(step);
-    }
-    element.addEventListener("wheel", onWheel, { passive: false });
-    return () => element.removeEventListener("wheel", onWheel);
-  }, [zoomBy]);
-
-  // Viewport-relative, and only meaningful while the page itself is at the top —
-  // which it is by design, since the grid scrolls inside itself.
-  useLayoutEffect(() => {
-    const element = scrollRef.current;
-    if (!element) return;
-    const measureTop = () => setGridTop(element.getBoundingClientRect().top + window.scrollY);
-    measureTop();
-    window.addEventListener("resize", measureTop);
-    return () => window.removeEventListener("resize", measureTop);
-  }, []);
-
-  /**
-   * Open at 09:00. On a later zoom change keep whatever minute is at the top of
-   * the viewport, so resizing the window does not throw the view back to 9am.
-   * Paging between weeks does not run this at all — the scroll position stays.
-   */
-  useLayoutEffect(() => {
-    const element = scrollRef.current;
-    if (!element) return;
-    const previous = lastHourHeight.current;
-    element.scrollTop =
-      previous === null
-        ? DEFAULT_SCROLL_HOUR * hourHeight
-        : element.scrollTop * (hourHeight / previous);
-    lastHourHeight.current = hourHeight;
-  }, [hourHeight]);
-
-  // Default the mobile view to today when today is in the visible week.
+  // Pick the day tab on first load; follow a "today" jump but leave the user's manual pick alone otherwise.
   useEffect(() => {
     if (mobileDayIndex !== null) return;
     const index = days.findIndex((day) => toDayKey(day, tz) === todayKey);
     setMobileDayIndex(index >= 0 ? index : 0);
   }, [days, tz, todayKey, mobileDayIndex]);
 
-  function goToWeek(delta: number) {
-    const target = shiftWeeks(weekStart, tz, delta);
-    router.push(`/?week=${toWeekKey(target, tz)}`, { scroll: false });
-  }
-
-  function goToToday() {
-    router.push(`/?week=${toWeekKey(new Date(), tz)}`, { scroll: false });
+  // Today jump also snaps the mobile tab to today, so the strip and the URL agree.
+  const handleToday = useCallback(() => {
+    goToToday();
     const index = weekDays(new Date(), tz).findIndex(
       (day) => toDayKey(day, tz) === toDayKey(new Date(), tz),
     );
     if (index >= 0) setMobileDayIndex(index);
-  }
+  }, [goToToday, tz]);
 
-  useEffect(() => {
-    function onKeyDown(event: KeyboardEvent) {
-      const target = event.target as HTMLElement | null;
-      if (target && /^(INPUT|SELECT|TEXTAREA)$/.test(target.tagName)) return;
-      if (event.key === "ArrowLeft") goToWeek(-1);
-      if (event.key === "ArrowRight") goToWeek(1);
-      if (event.key === "t" || event.key === "T") goToToday();
-      if (event.key === "Escape") setSelectedEntryId(null);
-    }
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [weekStart, tz]);
+  const shortcuts = useMemo(
+    () => ({
+      ArrowLeft: () => goToWeek(-1),
+      ArrowRight: () => goToWeek(1),
+      t: handleToday,
+      T: handleToday,
+      Escape: () => setSelectedEntryId(null),
+    }),
+    [goToWeek, handleToday],
+  );
+  useKeyboardShortcuts(shortcuts);
 
-  // ---- Creating an entry ----
-  //
-  // Every path below opens the editor on the new entry before the POST comes
-  // back. The id is minted here and the optimistic block sits in the cache under
-  // it, so the server's row lands on the same id a moment later. Waiting for the
-  // server cost a round trip and then a whole refetch, since the id only existed
-  // once the entries list came back, which is a long time to sit looking at a
-  // grid after a double-click. See ARCHITECTURE.md §8.
-
-  /** A create the server refused takes its block, and the editor, with it. */
+  // Create paths open the editor before the POST returns; the id is minted here so the optimistic block and server row share it. See ARCHITECTURE.md §8.
   const dropSelection = useCallback((id: string) => {
     setSelectedEntryId((current) => (current === id ? null : current));
   }, []);
@@ -263,7 +129,6 @@ export function WeekView() {
   const createEntryMutate = createEntry.mutate;
   const updateEntryAsync = updateEntry.mutateAsync;
 
-  /** The "Start timer" button and the day task strip: a live timer from now. */
   const quickStart = useCallback(
     (task?: Task) => {
       const id = newEntryId();
@@ -278,11 +143,6 @@ export function WeekView() {
     [startTimerMutate, dropSelection],
   );
 
-  /**
-   * Click on empty grid: you are doing this now, so start a live timer at the
-   * minute you clicked and leave it running. It lands in the strip at the top of
-   * every page, and stays there until you stop it or type an end time.
-   */
   const startTimerAt = useCallback(
     (dayKeyValue: string, startMinutes: number) => {
       const id = newEntryId();
@@ -295,7 +155,6 @@ export function WeekView() {
     [startTimerMutate, dropSelection, tz],
   );
 
-  /** Drag on empty grid: a completed entry over exactly that range. */
   const createRange = useCallback(
     (dayKeyValue: string, startMinutes: number, endMinutes: number) => {
       const id = newEntryId();
@@ -312,9 +171,7 @@ export function WeekView() {
     [createEntryMutate, dropSelection, tz],
   );
 
-  // These return the mutation's promise so the block can hold its dragged
-  // position until the write lands or rolls back. Stable identities, so that
-  // selecting or dragging one block does not re-render every other one.
+  // Return the mutation promise so the block holds its drag until the write settles. Stable identities avoid re-rendering sibling blocks.
   const moveEntry = useCallback(
     (segment: PositionedSegment, deltaMinutes: number) => {
       const entry = segment.entry;
@@ -322,8 +179,8 @@ export function WeekView() {
       const shift = deltaMinutes * 60_000;
       return updateEntryAsync({
         id: entry.id,
-        startedAt: new Date(new Date(entry.startedAt).getTime() + shift).toISOString(),
-        endedAt: new Date(new Date(entry.endedAt).getTime() + shift).toISOString(),
+        startedAt: shiftInstant(entry.startedAt, shift),
+        endedAt: shiftInstant(entry.endedAt, shift),
       });
     },
     [updateEntryAsync],
@@ -334,16 +191,10 @@ export function WeekView() {
       const entry = segment.entry;
       const shift = deltaMinutes * 60_000;
       if (edge === "start") {
-        return updateEntryAsync({
-          id: entry.id,
-          startedAt: new Date(new Date(entry.startedAt).getTime() + shift).toISOString(),
-        });
+        return updateEntryAsync({ id: entry.id, startedAt: shiftInstant(entry.startedAt, shift) });
       }
       if (!entry.endedAt) return;
-      return updateEntryAsync({
-        id: entry.id,
-        endedAt: new Date(new Date(entry.endedAt).getTime() + shift).toISOString(),
-      });
+      return updateEntryAsync({ id: entry.id, endedAt: shiftInstant(entry.endedAt, shift) });
     },
     [updateEntryAsync],
   );
@@ -357,207 +208,65 @@ export function WeekView() {
   const gridTemplate = `${GUTTER_PX}px repeat(${visibleDays.length}, minmax(0, 1fr))`;
 
   return (
-    <div className="py-3">
-      {/* ---- Header ---- */}
-      <div className="mb-3 flex flex-wrap items-center gap-2">
-        <div className="flex items-center gap-1">
-          <IconButton label={t("week.prev")} onClick={() => goToWeek(-1)}>
-            <ChevronLeft className="h-4 w-4" />
-          </IconButton>
+    <div className="flex flex-1 min-h-0 flex-col py-3">
+      <WeekViewHeader
+        weekStart={weekStart}
+        weekEnd={weekEnd}
+        weekTotal={weekTotal}
+        tz={tz}
+        onPrevWeek={() => goToWeek(-1)}
+        onNextWeek={() => goToWeek(1)}
+        onToday={handleToday}
+        onQuickStart={() => quickStart()}
+      />
 
-          {/* The week you are on sits between the arrows that change it. */}
-          <div className="w-[112px] shrink-0 text-center leading-tight">
-            <div className="tabular text-sm font-semibold">
-              {t("week.weekPrefix")}{isoWeekNumber(weekStart, tz)}{t("week.weekSuffix")}
-            </div>
-            <div className="tabular text-[10px] text-fg-subtle">
-              {formatRangeLabel(weekStart, weekEnd, tz, locale)}
-            </div>
-          </div>
-
-          <IconButton label={t("week.next")} onClick={() => goToWeek(1)}>
-            <ChevronRight className="h-4 w-4" />
-          </IconButton>
-          <Button size="sm" variant="ghost" onClick={goToToday}>
-            {t("week.today")}
-          </Button>
-        </div>
-
-        <div className="min-w-0">
-          <h1 className="tabular truncate text-base font-semibold text-fg">
-            {t("week.tracked", { n: formatDurationHuman(weekTotal) })}
-          </h1>
-          <p className="tabular text-xs text-fg-muted">{isoWeekYear(weekStart, tz)}</p>
-        </div>
-
-        <div className="ml-auto flex items-center gap-1.5">
-          <ExportButton weekStart={weekStart} weekEnd={weekEnd} tz={tz} />
-          <Button size="sm" variant="primary" onClick={() => quickStart()}>
-            <Plus className="h-3.5 w-3.5" />
-            <span className="hidden sm:inline">{t("week.startTimer")}</span>
-          </Button>
-        </div>
-      </div>
-
-      {/* ---- Mobile day strip ---- */}
       {!isDesktop ? (
-        <div className="mb-2 grid grid-cols-7 gap-1">
-          {days.map((day, index) => {
-            const key = toDayKey(day, tz);
-            const minutes = dayTotalMinutes(segments.get(key));
-            const active = index === mobileDayIndex;
-            return (
-              <button
-                key={key}
-                type="button"
-                onClick={() => setMobileDayIndex(index)}
-                className={cn(
-                  "rounded-lg border px-0.5 py-1.5 text-center transition",
-                  active
-                    ? "border-accent bg-accent-soft text-accent"
-                    : "border-border bg-surface text-fg-muted",
-                )}
-              >
-                <span className="block text-[10px] uppercase">
-                  {formatWeekdayShort(day, tz, locale).slice(0, 1)}
-                </span>
-                <span className="block text-sm font-semibold">
-                  {formatDayOfMonth(day, tz)}
-                </span>
-                <span className="tabular block text-[9px] opacity-70">
-                  {minutes > 0 ? formatDurationHuman(minutes) : "–"}
-                </span>
-              </button>
-            );
-          })}
-        </div>
+        <MobileDayStrip
+          days={days}
+          tz={tz}
+          segments={segments}
+          mobileDayIndex={mobileDayIndex}
+          onSelectDay={setMobileDayIndex}
+        />
       ) : null}
 
-      {/* ---- Day headers ---- */}
-      <div
-        className="sticky top-0 z-20 grid border-b border-border bg-bg/95 backdrop-blur"
-        style={{ gridTemplateColumns: gridTemplate }}
-      >
-        <div />
-        {visibleDays.map((day) => {
-          const key = toDayKey(day, tz);
-          const minutes = dayTotalMinutes(segments.get(key));
-          const isToday = key === todayKey;
-          return (
-            <div key={key} className="border-l border-border px-1 py-1.5">
-              <div className="flex items-baseline justify-center gap-1.5">
-                <span
-                  className={cn(
-                    "text-xs font-medium uppercase",
-                    isToday ? "text-accent" : "text-fg-muted",
-                  )}
-                >
-                  {formatWeekdayShort(day, tz, locale)}
-                </span>
-                <span
-                  className={cn(
-                    "text-lg font-semibold",
-                    isToday &&
-                      "flex h-7 w-7 items-center justify-center rounded-full bg-accent text-accent-fg",
-                  )}
-                >
-                  {formatDayOfMonth(day, tz)}
-                </span>
-              </div>
-              {/* Full-strength foreground, not the subtle token: this is the
-                  number you actually read off the header. */}
-              <div className="tabular mt-0.5 text-center text-xs font-medium text-fg">
-                {minutes > 0 ? formatDurationHuman(minutes) : "—"}
-              </div>
+      <DayHeaderRow
+        visibleDays={visibleDays}
+        tz={tz}
+        segments={segments}
+        tasksByDay={tasksByDay}
+        todayKey={todayKey}
+        gridTemplate={gridTemplate}
+        onQuickStart={quickStart}
+      />
 
-              <DayTaskStrip
-                dayKey={key}
-                tasks={tasksByDay.get(key) ?? []}
-                onStart={(task) => quickStart(task)}
-              />
-            </div>
-          );
-        })}
-      </div>
+      <WeekGrid
+        visibleDays={visibleDays}
+        tz={tz}
+        segments={segments}
+        selectedEntryId={selectedEntryId}
+        todayKey={todayKey}
+        hourHeight={hourHeight}
+        pxPerMinute={pxPerMinute}
+        now={now}
+        isDesktop={isDesktop}
+        entriesLoading={entriesLoading}
+        scrollRef={scrollRef}
+        gridTemplate={gridTemplate}
+        onSelectEntry={setSelectedEntryId}
+        onCreateRange={createRange}
+        onStartTimerAt={startTimerAt}
+        onMoveEntry={moveEntry}
+        onResizeEntry={resizeEntry}
+      />
 
-      {/* ---- Scrolling grid ---- */}
-      <div
-        ref={scrollRef}
-        className="scroll-thin relative overflow-y-auto rounded-b-xl border-x border-b border-border bg-surface"
-        style={{
-          // Below the grid: the hint line, and on mobile the bottom tab bar.
-          maxHeight:
-            gridTop === null
-              ? "calc(100vh - 296px)"
-              : `calc(100vh - ${Math.round(gridTop) + (isDesktop ? 84 : 168)}px)`,
-          minHeight: 360,
-        }}
-      >
-        {entriesLoading ? (
-          <div className="absolute right-3 top-3 z-30">
-            <Spinner />
-          </div>
-        ) : null}
-
-        <div className="grid" style={{ gridTemplateColumns: gridTemplate }}>
-          {/* Hour gutter */}
-          <div className="relative" style={{ height: GRID_MINUTES * pxPerMinute }}>
-            {Array.from({ length: 24 }, (_, hour) => (
-              <div
-                key={hour}
-                className="absolute right-1.5 -translate-y-1/2 text-[10px] tabular text-fg-subtle"
-                style={{ top: hour * hourHeight }}
-              >
-                {hour === 0 ? "" : formatMinutesAsClock(hour * 60)}
-              </div>
-            ))}
-          </div>
-
-          {visibleDays.map((day) => {
-            const key = toDayKey(day, tz);
-            const isToday = key === todayKey;
-            return (
-              <div key={key} className="relative">
-                <DayColumn
-                  dayKey={key}
-                  segments={segments.get(key) ?? []}
-                  isToday={isToday}
-                  selectedEntryId={selectedEntryId}
-                  onSelectEntry={setSelectedEntryId}
-                  onCreateRange={createRange}
-                  onStartTimerAt={startTimerAt}
-                  nowMinutes={isToday ? wallClockMinutes(now, tz) : null}
-                  onMoveEntry={moveEntry}
-                  onResizeEntry={resizeEntry}
-                  pxPerMinute={pxPerMinute}
-                  hourHeight={hourHeight}
-                />
-                {isToday ? <NowLine now={now} tz={tz} pxPerMinute={pxPerMinute} /> : null}
-              </div>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* ---- Zoom bar ---- */}
-      <div className="mt-2 flex items-center gap-2">
-        <IconButton label={t("week.fit")} onClick={resetFit}>
-          <Maximize2 className="h-3.5 w-3.5" />
-        </IconButton>
-        <input
-          type="range"
-          aria-label={t("week.zoom")}
-          min={MIN_HOUR_HEIGHT_PX}
-          max={MAX_HOUR_HEIGHT_PX}
-          step={1}
-          value={hourHeight}
-          onChange={(event) => applyZoom(Number(event.target.value))}
-          className="h-1 flex-1 cursor-pointer accent-accent"
-        />
-        <span className="tabular w-12 shrink-0 text-right text-[10px] text-fg-subtle">
-          {t("week.pxPerHour", { n: hourHeight })}
-        </span>
-      </div>
+      <ZoomBar
+        hourHeight={hourHeight}
+        onApplyZoom={applyZoom}
+        onResetFit={resetFit}
+        min={MIN_HOUR_HEIGHT_PX}
+        max={MAX_HOUR_HEIGHT_PX}
+      />
 
       <p className="mt-2 text-center text-[11px] text-fg-subtle">
         {t("week.hint", { block: DEFAULT_BLOCK_MINUTES })}

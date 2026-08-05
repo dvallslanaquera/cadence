@@ -31,8 +31,7 @@ function toResponse(error: unknown): NextResponse {
 
   if (error instanceof Prisma.PrismaClientKnownRequestError) {
     if (error.code === "P2002") {
-      // The one-running-entry index and a duplicate project name both land
-      // here; they deserve different messages.
+      // The one-running-entry index and a duplicate project name both land here; they deserve different messages.
       const target = String(error.meta?.target ?? "");
       if (target.includes("endedAt")) {
         return NextResponse.json(
@@ -45,8 +44,7 @@ function toResponse(error: unknown): NextResponse {
     if (error.code === "P2025") {
       return NextResponse.json({ error: "Not found" }, { status: 404 });
     }
-    // 23P01 = exclusion violation: the overlap constraint caught a race that
-    // slipped past the application-level check.
+    // 23P01 = exclusion violation: the overlap constraint caught a race that slipped past the application-level check.
     if (error.code === "P2010" || String(error.message).includes("23P01")) {
       return NextResponse.json(
         { error: "That time range overlaps another entry" },
@@ -61,11 +59,7 @@ function toResponse(error: unknown): NextResponse {
 
 type RouteHandler<Ctx> = (request: Request, context: Ctx) => Promise<unknown>;
 
-/**
- * Wraps a handler with the session check and error mapping. Unauthenticated
- * requests get a 401 rather than a redirect, so a stale tab never receives an
- * HTML login page where it expected JSON.
- */
+/** Wraps a handler with the session check and error mapping; unauthenticated requests get 401 JSON, not an HTML login redirect. */
 export function route<Ctx = unknown>(handler: RouteHandler<Ctx>) {
   return async (request: Request, context: Ctx): Promise<Response> => {
     try {
@@ -82,10 +76,7 @@ export function route<Ctx = unknown>(handler: RouteHandler<Ctx>) {
   };
 }
 
-/**
- * For the cron-triggered alert route, which has no session. Compares the shared
- * secret in constant time. See ARCHITECTURE.md §6.
- */
+/** For the cron-triggered alert route, which has no session; compares the shared secret in constant time. See ARCHITECTURE.md §6. */
 export function routeWithSecret(handler: RouteHandler<unknown>) {
   return async (request: Request, context: unknown): Promise<Response> => {
     try {

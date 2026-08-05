@@ -1,7 +1,4 @@
-/**
- * Wire types. Declared here rather than imported from the server so nothing in
- * the client bundle has a path back to Prisma.
- */
+// Wire types. Declared here, not imported from the server, so nothing in the client bundle has a path back to Prisma.
 
 export interface ProjectRef {
   id: string;
@@ -11,8 +8,7 @@ export interface ProjectRef {
 
 export interface DescriptionSuggestion {
   description: string;
-  /** The project this description is most often logged under, or null if
-   * every past pairing was with a now-archived project. */
+  /** The project this description is most often logged under, or null if every past pairing was with a now-archived project. */
   projectId: string | null;
 }
 

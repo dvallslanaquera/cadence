@@ -34,8 +34,7 @@ export const keys = {
   frequentProjects: ["projects", "frequent"] as const,
   tasks: (filter: string) => ["tasks", filter] as const,
   tags: ["tags"] as const,
-  // Deliberately not under "entries": every drag invalidates that whole root,
-  // and refetching the autocomplete history mid-drag buys nothing.
+  // Not under "entries": every drag invalidates that whole root, and refetching autocomplete history mid-drag buys nothing.
   descriptions: ["descriptions"] as const,
   settings: ["settings"] as const,
   statsDaily: (from: string, to: string) => ["stats", "daily", from, to] as const,
@@ -43,7 +42,7 @@ export const keys = {
   statsProjects: (from: string, to: string) => ["stats", "projects", from, to] as const,
 };
 
-/** Anything that changes time data invalidates all three of these. */
+/** Anything that changes time data invalidates all three. */
 function invalidateTimeData(client: QueryClient) {
   void client.invalidateQueries({ queryKey: ["entries"] });
   void client.invalidateQueries({ queryKey: ["stats"] });
@@ -59,30 +58,13 @@ function reportError(error: unknown) {
   toast.error(t("toast.somethingWrong"));
 }
 
-// ---------------------------------------------------------------------------
-// Optimistic cache surgery
-//
-// Dragging a block or hitting start/stop has to land on screen at once. Every
-// timer mutation therefore writes the expected result into the cache in
-// `onMutate`, rolls it back in `onError`, and lets the refetch in `onSettled`
-// reconcile whatever the server actually decided — the minute rounding, the
-// one-minute minimum, the clip against the next entry. The optimistic value is
-// a good guess, never the source of truth. See ARCHITECTURE.md §13.
-// ---------------------------------------------------------------------------
+// Optimistic cache surgery: every timer mutation writes the expected result in onMutate, rolls back in onError, and lets onSettled's refetch reconcile what the server actually decided (minute rounding, one-minute minimum, clip against the next entry). The optimistic value is a guess, never the source of truth. See ARCHITECTURE.md §13.
 
 interface EntriesPayload {
   entries: Entry[];
 }
 
-/**
- * Creates the server has not answered yet.
- *
- * The grid opens the editor on a new entry the moment you double-click, so
- * every control in that editor is live while the POST is still in the air. The
- * ones that name a row the database may not have yet wait here first. There is
- * never more than one or two of these, and waiting on all of them covers
- * stop-the-timer, which names no id at all.
- */
+// Creates the server has not answered yet. The editor opens on a new entry the moment you double-click, so controls that name a row the database may not have yet wait here first. Waiting on all of them also covers stop-the-timer, which names no id.
 const pendingCreates = new Set<Promise<unknown>>();
 
 function trackCreate<T>(work: Promise<T>): Promise<T> {
@@ -100,11 +82,7 @@ function afterPendingCreates(): Promise<unknown> {
   return pendingCreates.size === 0 ? Promise.resolve() : Promise.all(pendingCreates);
 }
 
-/**
- * Every cached week, but not the running query. Both live under "entries";
- * a week key is ["entries", from, to] and the running key is ["entries",
- * "running"], so the length tells them apart.
- */
+// Every cached week, but not the running query. Both live under "entries"; a week key is ["entries", from, to] and the running key is ["entries", "running"], so the length tells them apart.
 const ENTRY_LISTS = {
   queryKey: ["entries"],
   predicate: (query: { queryKey: readonly unknown[] }) => query.queryKey.length === 3,
@@ -112,7 +90,7 @@ const ENTRY_LISTS = {
 
 type CacheSnapshot = [readonly unknown[], unknown][];
 
-/** Freeze in-flight refetches so they cannot land on top of the optimistic write. */
+/** Cancel in-flight refetches so they cannot land on top of the optimistic write. */
 async function beginOptimistic(client: QueryClient, root: string): Promise<CacheSnapshot> {
   await client.cancelQueries({ queryKey: [root] });
   return client.getQueriesData({ queryKey: [root] });
@@ -122,7 +100,7 @@ function rollback(client: QueryClient, snapshot: CacheSnapshot | undefined) {
   for (const [key, data] of snapshot ?? []) client.setQueryData(key, data);
 }
 
-/** Rewrite each cached week. `range` is that week's [from, to). */
+/** Rewrite each cached week; `range` is that week's [from, to). */
 function updateEntryLists(
   client: QueryClient,
   update: (entries: Entry[], range: { from: Date; to: Date }) => Entry[],
@@ -142,7 +120,7 @@ function patchEntry(client: QueryClient, id: string, patch: (entry: Entry) => En
   );
 }
 
-/** The project a mutation names, from whatever the projects cache already holds. */
+/** The project a mutation names, from whatever the projects cache holds. */
 function cachedProject(client: QueryClient, projectId?: string | null): ProjectRef | null {
   const lists = client.getQueriesData<{ projects: Project[] }>({ queryKey: keys.projects });
   const projects = lists.flatMap(([, data]) => data?.projects ?? []);
@@ -156,12 +134,7 @@ interface TasksPayload {
   tasks: Task[];
 }
 
-/**
- * Rewrite every cached task list, then re-apply the filter that produced it —
- * the query string is the second half of the key. Completing a task while the
- * "Open" tab is showing therefore removes it, and moving one to Study removes it
- * from a Work-filtered list, instead of leaving a ghost row until the refetch.
- */
+// Rewrite every cached task list, then re-apply the filter that produced it (the query string is the second half of the key). Completing a task while "Open" is showing removes it; moving one to Study removes it from a Work-filtered list, instead of leaving a ghost row until the refetch.
 function updateTaskLists(client: QueryClient, update: (tasks: Task[]) => Task[]) {
   for (const [key, data] of client.getQueriesData<TasksPayload>({ queryKey: ["tasks"] })) {
     if (!data) continue;
@@ -184,9 +157,7 @@ function updateTaskLists(client: QueryClient, update: (tasks: Task[]) => Task[])
   }
 }
 
-// ---------------------------------------------------------------------------
 // Reads
-// ---------------------------------------------------------------------------
 
 export function useSettings() {
   return useQuery({
@@ -210,10 +181,7 @@ export function useEntries(from: Date, to: Date) {
   });
 }
 
-/**
- * Polls every 30s and refetches on focus, so the phone and the laptop agree
- * within seconds without any offline machinery. See ARCHITECTURE.md §13.
- */
+/** Polls every 30s and refetches on focus, so phone and laptop agree without offline machinery. See ARCHITECTURE.md §13. */
 export function useRunning() {
   return useQuery({
     queryKey: keys.running,
@@ -236,10 +204,7 @@ export function useProjects(includeArchived = false) {
   });
 }
 
-/**
- * Ids of the most-used projects, most-used first. Shares the "projects" key
- * prefix so creating or deleting a project refreshes the shortlist too.
- */
+/** Ids of the most-used projects, most-used first. Shares the "projects" prefix so creating or deleting a project refreshes the shortlist. */
 export function useFrequentProjectIds() {
   return useQuery({
     queryKey: keys.frequentProjects,
@@ -280,13 +245,7 @@ export function useTags() {
   });
 }
 
-/**
- * Past entry descriptions for the editor's autocomplete, most-used first, each
- * paired with the project it is most often logged under so the editor can
- * switch to it when one is chosen from the list. One fetch feeds every
- * keystroke; a minute of staleness only delays a description you invented a
- * minute ago from joining the list.
- */
+// Past entry descriptions for the editor's autocomplete, most-used first, each paired with the project it is most often logged under so the editor can switch to it when one is chosen. One fetch feeds every keystroke; a minute of staleness only delays a description you invented a minute ago from joining the list.
 export function useDescriptionHistory() {
   return useQuery({
     queryKey: keys.descriptions,
@@ -332,9 +291,7 @@ export function useProjectStats(from: Date, to: Date) {
   });
 }
 
-// ---------------------------------------------------------------------------
 // Timer
-// ---------------------------------------------------------------------------
 
 export interface StartTimerInput {
   description?: string;
@@ -343,11 +300,7 @@ export interface StartTimerInput {
   tags?: string[];
   /** A minute that has already passed, from a click on the grid. Defaults to now. */
   startedAt?: string;
-  /**
-   * The id to create the entry under, from `newEntryId`. Supplied by the grid,
-   * which opens the editor on the new entry before the server has answered.
-   * See ARCHITECTURE.md §8.
-   */
+  /** The id to create the entry under, from newEntryId; the grid opens the editor before the server answers. See ARCHITECTURE.md §8. */
   id?: string;
 }
 
@@ -362,9 +315,7 @@ export function useStartTimer() {
       const startedAt = roundToMinute(input.startedAt ? new Date(input.startedAt) : new Date());
 
       const optimistic: Entry = {
-        // Without a caller-supplied id, the server's row replaces this one on
-        // the next refetch; distinct enough that it can never be mistaken for a
-        // real cuid in the meantime.
+        // Without a caller-supplied id, the server's row replaces this on the next refetch; distinct enough never to be mistaken for a real cuid.
         id: input.id ?? `optimistic-${startedAt.getTime()}`,
         description: input.description ?? "",
         startedAt: startedAt.toISOString(),
@@ -375,7 +326,7 @@ export function useStartTimer() {
         tags: input.tags ?? [],
       };
 
-      // Starting a timer stops whatever was running, exactly abutting it.
+      // Starting a timer stops whatever was running, abutting it exactly.
       const previous = client.getQueryData<RunningState>(keys.running)?.entry ?? null;
       if (previous) {
         patchEntry(client, previous.id, (entry) => ({
@@ -394,9 +345,7 @@ export function useStartTimer() {
       return { snapshot };
     },
 
-    // Take the server's row now rather than at the end of the refetch. The
-    // editor is already open on this id, and its start may have been clipped
-    // against whatever was running.
+    // Take the server's row now rather than at the end of the refetch; the editor is open on this id and its start may have been clipped against whatever was running.
     onSuccess: (result, input) => {
       const id = input.id;
       if (!id) return;
@@ -427,8 +376,7 @@ export function useStopTimer() {
       const running = client.getQueryData<RunningState>(keys.running)?.entry ?? null;
 
       if (running) {
-        // The server enforces a one-minute minimum and may clip the end against
-        // a later entry; the refetch corrects both.
+        // Server enforces a one-minute minimum and may clip the end against a later entry; the refetch corrects both.
         const endedAt = roundToMinute(new Date()).toISOString();
         patchEntry(client, running.id, (entry) => ({ ...entry, endedAt }));
       }
@@ -447,9 +395,7 @@ export function useStopTimer() {
   });
 }
 
-// ---------------------------------------------------------------------------
 // Entries
-// ---------------------------------------------------------------------------
 
 export interface CreateEntryInput {
   description?: string;
@@ -490,8 +436,7 @@ export function useCreateEntry() {
       return { snapshot };
     },
 
-    // See `useStartTimer`: the editor is open on this id while the POST is in
-    // the air, so the server's rounding lands as soon as it arrives.
+    // See useStartTimer: the editor is open on this id while the POST is in the air, so the server's rounding lands as soon as it arrives.
     onSuccess: (result, input) => {
       if (input.id) patchEntry(client, input.id, () => result.entry);
     },
@@ -513,12 +458,7 @@ export interface UpdateEntryInput {
   tags?: string[];
 }
 
-/**
- * Optimistic, because this is the drag handler: a block that snaps back to its
- * old position until the PATCH returns reads as lag no matter how quick the
- * server is. A rejected edit — an overlap, most often — rolls the block back
- * and the toast says why.
- */
+// Optimistic, because this is the drag handler: a block that snaps back until the PATCH returns reads as lag however fast the server is. A rejected edit (an overlap, most often) rolls the block back and the toast says why.
 export function useUpdateEntry() {
   const client = useQueryClient();
   return useMutation({
@@ -567,11 +507,7 @@ export function useUpdateEntry() {
   });
 }
 
-/**
- * Delete is optimistic with an undo toast rather than a confirm dialog — a
- * mis-click costs one click to reverse, and a confirm on every delete gets
- * clicked through blindly within a week. See ARCHITECTURE.md §17.
- */
+// Delete is optimistic with an undo toast rather than a confirm dialog: a mis-click costs one click to reverse, and a confirm on every delete gets clicked through blindly within a week. See ARCHITECTURE.md §17.
 export function useDeleteEntry() {
   const client = useQueryClient();
   const recreate = useCreateEntry();
@@ -604,9 +540,7 @@ export function useDeleteEntry() {
   });
 }
 
-// ---------------------------------------------------------------------------
 // Projects
-// ---------------------------------------------------------------------------
 
 export function useCreateProject() {
   const client = useQueryClient();
@@ -663,9 +597,7 @@ export function useDeleteProject() {
   });
 }
 
-// ---------------------------------------------------------------------------
 // Tasks
-// ---------------------------------------------------------------------------
 
 export function useCreateTask() {
   const client = useQueryClient();
@@ -779,9 +711,7 @@ export function useDeleteTask() {
   });
 }
 
-// ---------------------------------------------------------------------------
 // Settings
-// ---------------------------------------------------------------------------
 
 export function useUpdateSettings() {
   const client = useQueryClient();

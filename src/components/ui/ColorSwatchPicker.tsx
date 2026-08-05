@@ -6,14 +6,7 @@ import { PROJECT_COLORS } from "@/lib/constants";
 import { cn } from "@/lib/utils";
 import { useT } from "@/lib/i18n-client";
 
-/**
- * A project's colour dot as a button. Clicking opens a menu with a native
- * colour input for any hex on top and the twenty preset swatches below it. The
- * click is stopped from bubbling so it never also selects the project, since
- * the swatch shares the row with the project's choose control.
- *
- * `size="sm"` matches the smaller dots in the settings project rows.
- */
+// Project colour dot as a button. Click is stopped from bubbling so it never also selects the project, since the swatch shares the row with the project's choose control. size="sm" matches the smaller dots in settings rows.
 export function ColorSwatchPicker({
   color,
   onPick,

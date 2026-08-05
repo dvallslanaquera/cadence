@@ -31,11 +31,7 @@ import type { Entry } from "@/lib/types";
 
 const MINUTES_PER_DAY = 1440;
 
-/**
- * Which local day the end falls on, given only two times of day. The dial can
- * only say "17:30", so an end at or before the start is read as the next day —
- * the same wrap the grid already applies to a block dragged past midnight.
- */
+// End at or before start wraps to the next day; the dial only says "17:30", so this mirrors the grid's midnight wrap.
 function wrapEndOffset(startMinutes: number, endMinutes: number): number {
   return endMinutes > startMinutes ? 0 : 1;
 }
@@ -44,19 +40,11 @@ interface EntryFields {
   description: string;
   projectId: string;
   tags: string;
-  /**
-   * The start's calendar day anchors the entry. It has no control of its own —
-   * the entry already sits on a day in the grid, and you move it by dragging it
-   * there. Only the times are editable here.
-   */
+  // The start's calendar day anchors the entry; you move days by dragging in the grid, so only times are editable here.
   startDate: string;
   startTime: string;
   endTime: string;
-  /**
-   * Days from the start's day to the end's day. Seeded from the entry so an
-   * existing multi-day entry survives being merely looked at; editing either
-   * time re-derives it as a single wrap, which is all a 24-hour dial can mean.
-   */
+  // Day offset seeded from the entry so multi-day survives a read; editing either time re-derives it as a single wrap.
   endDayOffset: number;
 }
 
@@ -81,11 +69,7 @@ function keepEdit<T>(mine: T, was: T, theirs: T): T {
   return mine === was ? theirs : mine;
 }
 
-/**
- * One editor for every path in and out of the grid — click-to-start,
- * drag-to-create, and editing an existing entry all land here, so the create
- * and edit paths cannot drift apart. See ARCHITECTURE.md §8.
- */
+// One editor for every grid path (start, create, edit) so they can't drift apart. See ARCHITECTURE.md §8.
 export function EntryPopover({
   entry,
   onClose,
@@ -93,10 +77,7 @@ export function EntryPopover({
 }: {
   entry: Entry;
   onClose: () => void;
-  /**
-   * Passed through from the description field. The popover shell needs to know a
-   * dropdown is up so Escape dismisses that first. See EntryBlock.
-   */
+  // From the description field; the shell needs to know a dropdown is up so Escape dismisses it first. See EntryBlock.
   onSuggestionsOpenChange?: (open: boolean) => void;
 }) {
   const { data: settings } = useSettings();
@@ -113,13 +94,7 @@ export function EntryPopover({
   const [form, setForm] = useState(() => entryFields(entry, tz));
   const { description, projectId, tags, startDate, startTime, endTime, endDayOffset } = form;
 
-  /**
-   * The entry changes beneath the open editor more often than it looks. The
-   * server's rounding can land on a block you just created. A refetch hands back
-   * a fresh object. Another device may stop the timer. Untouched fields follow
-   * it, edited ones do not. This editor is now open while its own create is
-   * still in the air, and a blind reset there throws away what you typed.
-   */
+  // The entry shifts under the open editor (server rounding, refetch, another device stopping the timer). Untouched fields follow; edited ones don't, so a blind reset on our own in-flight create would lose what you typed.
   const derived = useMemo(() => entryFields(entry, tz), [entry, tz]);
   const synced = useRef(derived);
 
@@ -143,15 +118,8 @@ export function EntryPopover({
     }));
   }, [derived]);
 
-  // Parsed views of the two time fields. Null while a field is cleared or
-  // half-typed; the dial holds the entry's own time rather than snapping to
-  // midnight, so clearing the input doesn't yank a handle across the face.
-  //
-  // A running entry has no end *yet*, which is the same field in a different
-  // state rather than a different mode: leave it empty and the timer keeps
-  // running, type a time and the entry stops there. The dial follows too: a
-  // dashed stub while the end is unset, a real arc with a draggable handle once
-  // it is.
+  // Parsed time fields; null while cleared/half-typed. The dial holds the entry's own time so clearing doesn't yank a handle to midnight.
+  // A running entry's empty end is a state, not a mode: leave empty to keep running, type to stop. The dial shows a dashed stub then a real arc.
   const parsedStart = parseClockToMinutes(startTime);
   const parsedEnd = parseClockToMinutes(endTime);
   const dialStart = parsedStart ?? wallClockMinutes(new Date(entry.startedAt), tz);
@@ -218,14 +186,11 @@ export function EntryPopover({
     };
 
     const endMinutes = parseClockToMinutes(endTime);
-    // Half-typed: refuse rather than guess, the same as a bad start time. An
-    // empty field is not half-typed. It means the entry has no end, so a
-    // running one keeps running and a finished one keeps the end it already has.
+    // Refuse a half-typed end like a bad start; empty means no end, so running keeps running and finished keeps its end.
     if (endMinutes === null && endTime.trim() !== "") return;
 
     if (endMinutes !== null) {
-      // Offset 0 with an end at or before the start would be a zero or negative
-      // entry; that reading always belongs to the next day.
+      // Offset 0 with end <= start would be a zero/negative entry; that belongs to the next day.
       const offset =
         endDayOffset === 0 ? wrapEndOffset(startMinutes, endMinutes) : endDayOffset;
       payload.endedAt = instantFromLocalParts(
@@ -249,8 +214,7 @@ export function EntryPopover({
           placeholder={t("timer.placeholder")}
           onChange={(value) => edit({ description: value })}
           onSelectSuggestion={(_description, projectId) => {
-            // A null project means the description's usual project was retired;
-            // leave the current one alone rather than guessing.
+            // Null project means the usual project was retired; leave the current one rather than guess.
             if (projectId) edit({ projectId });
           }}
           onSubmit={save}
@@ -318,8 +282,7 @@ export function EntryPopover({
         </Field>
       </div>
 
-      {/* One click for the common case. Typing an end time does the same thing at
-          a minute of your choosing, which is what the field above is for. */}
+      {/* One-click stop for the common case; the end field above handles a specific minute. */}
       {running ? (
         <Button
           size="sm"

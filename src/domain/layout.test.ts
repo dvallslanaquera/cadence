@@ -215,8 +215,7 @@ describe("intentFromClick", () => {
   });
 
   it("starts at the minute clicked, not at now", () => {
-    // You clicked 09:00 because that is when you started, six hours after which
-    // is not the same entry.
+    // You clicked 09:00 because that's when you started; six hours later is not the same entry.
     expect(intentFromClick(540, [], today())).toEqual({ kind: "start", startMinutes: 540 });
     expect(intentFromClick(NOW, [], today())).toEqual({ kind: "start", startMinutes: NOW });
   });
@@ -248,8 +247,7 @@ describe("intentFromClick", () => {
   });
 
   it("starts a timer at the exact end of the running block", () => {
-    // The running entry is drawn as ending now, so clicking its bottom edge is
-    // "I have moved on to the next thing".
+    // The running entry is drawn as ending now, so clicking its bottom edge means "I've moved on".
     const occupied = [{ startMinutes: 600, endMinutes: NOW }];
     expect(intentFromClick(NOW, occupied, today())).toEqual({
       kind: "start",

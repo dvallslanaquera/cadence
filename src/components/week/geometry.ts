@@ -8,7 +8,7 @@ export interface PositionedSegment extends DaySegment {
   /** Wall-clock minutes used for vertical placement. */
   topMinutes: number;
   bottomMinutes: number;
-  /** Real elapsed minutes of this piece — what the label shows. */
+  /** Real elapsed minutes of this piece; what the label shows. */
   durationMinutes: number;
   lane: number;
   laneCount: number;
@@ -17,11 +17,7 @@ export interface PositionedSegment extends DaySegment {
 /** The grid is drawn as a fixed 24-hour column so it aligns with the gutter. */
 export const GRID_MINUTES = 1440;
 
-/**
- * Split every entry into per-day pieces and position them.
- *
- * A running entry is drawn as if it ended now, so the block grows as you work.
- */
+// Running entries are drawn as if they ended now, so the block grows as you work.
 export function segmentsByDay(
   entries: Entry[],
   tz: string,
@@ -37,8 +33,7 @@ export function segmentsByDay(
 
     for (const segment of splitAcrossDays(start, end, tz)) {
       const topMinutes = wallClockMinutes(segment.startsAt, tz);
-      // A segment ending exactly at the next local midnight reads as 00:00;
-      // it belongs at the bottom of this day, not the top.
+      // A segment ending at next midnight reads as 00:00; place it at the bottom of this day, not the top.
       const rawBottom = wallClockMinutes(segment.endsAt, tz);
       const bottomMinutes =
         segment.continuesAfter || rawBottom <= topMinutes ? GRID_MINUTES : rawBottom;
@@ -58,8 +53,7 @@ export function segmentsByDay(
     }
   }
 
-  // Overlaps are rejected on write, so this is a safety net rather than a
-  // routine layout step (see domain/layout.ts).
+  // Overlaps are rejected on write, so this is a safety net, not a routine layout step. See domain/layout.ts.
   for (const [key, list] of byDay) {
     // assignLanes sorts internally, so carry an index to map results back.
     const laned = assignLanes(

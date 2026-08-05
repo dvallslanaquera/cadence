@@ -21,7 +21,6 @@ export interface TaskDto {
   completedAt: string | null;
   sortOrder: number;
   project: { id: string; name: string; color: string };
-  /** Total time logged against this task, in minutes. */
   loggedMinutes: number;
 }
 
@@ -82,10 +81,7 @@ export async function listTasks(filters: TaskFilters): Promise<TaskDto[]> {
   return rows.map((row) => toTaskDto(row, logged.get(row.id) ?? 0));
 }
 
-/**
- * Time logged per task. A running entry counts up to now, so the backlog shows
- * live progress rather than jumping when the timer stops.
- */
+/** Time logged per task; a running entry counts up to now so the backlog shows live progress. */
 async function loggedMinutesByTask(taskIds: string[]): Promise<Map<string, number>> {
   if (taskIds.length === 0) return new Map();
 

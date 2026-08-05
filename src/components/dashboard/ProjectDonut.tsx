@@ -9,13 +9,7 @@ import { ChartTooltip, DataTable, Panel } from "./Panel";
 import { useT } from "@/lib/i18n-client";
 import type { ProjectStat } from "@/lib/types";
 
-/**
- * Identity, so colour is categorical and follows the project — never its rank,
- * so filtering the range never repaints the survivors.
- *
- * Beyond seven projects the tail folds into "Other" rather than inventing hues
- * the palette hasn't validated.
- */
+// Colour tracks the project, not rank, so range filtering never repaints survivors; tail beyond 7 folds to "Other".
 const MAX_SLICES = 7;
 
 export function ProjectDonut({ projects }: { projects: ProjectStat[] }) {

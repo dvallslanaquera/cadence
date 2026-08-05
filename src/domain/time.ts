@@ -1,10 +1,7 @@
 /**
- * All wall-clock reasoning goes through this module. Nothing else in the app is
- * allowed to format a Date, because that is how a laptop in another country
- * silently renders the wrong week. See ARCHITECTURE.md §5.
- *
- * Instants are always UTC `Date`s. The home time zone is a parameter, never
- * ambient state.
+ * All wall-clock reasoning goes through here; formatting a Date elsewhere is how
+ * a laptop in another country renders the wrong week (ARCHITECTURE.md §5).
+ * Instants are UTC Dates; the home zone is a parameter, never ambient state.
  */
 import { TZDate } from "@date-fns/tz";
 import {
@@ -38,15 +35,12 @@ export function startOfLocalDay(instant: Date, tz: string): Date {
   return new Date(startOfDay(new TZDate(instant, tz)).getTime());
 }
 
-/**
- * Local midnight of the following day. Uses calendar arithmetic rather than
- * +24h, so DST transition days come out 23 or 25 hours long.
- */
+/** Next day's local midnight. Calendar arithmetic, not +24h, so DST days are 23 or 25h. */
 export function startOfNextLocalDay(dayStart: Date, tz: string): Date {
   return new Date(addDays(new TZDate(dayStart, tz), 1).getTime());
 }
 
-/** Length of the local day starting at `dayStart` — 1440 except across DST. */
+/** Length of the local day starting at dayStart; 1440 except across DST. */
 export function localDayLengthMinutes(dayStart: Date, tz: string): number {
   return minutesBetween(dayStart, startOfNextLocalDay(dayStart, tz));
 }
@@ -55,18 +49,13 @@ export function minutesFromLocalMidnight(instant: Date, tz: string): number {
   return minutesBetween(startOfLocalDay(instant, tz), instant);
 }
 
-/**
- * Wall-clock minutes: 09:30 local is always 570, even on a DST day when only
- * 8.5 hours have actually elapsed since midnight. The grid positions blocks by
- * this so the hour gutter stays honest every day of the year; durations and
- * totals use elapsed minutes instead.
- */
+/** Wall-clock minutes: 09:30 is always 570 even on a DST day with 8.5h elapsed. Grid uses this so the hour gutter stays honest; durations use elapsed minutes. */
 export function wallClockMinutes(instant: Date, tz: string): number {
   const z = new TZDate(instant, tz);
   return z.getHours() * 60 + z.getMinutes();
 }
 
-/** Build an instant from a local calendar date and minutes past midnight. */
+/** Instant from a local calendar date plus minutes past midnight. */
 export function instantFromLocalParts(
   dateKey: string,
   minutes: number,
@@ -92,12 +81,7 @@ export function dayKey(instant: Date, tz: string): string {
   return `${z.getFullYear()}-${pad(z.getMonth() + 1)}-${pad(z.getDate())}`;
 }
 
-/**
- * Calendar arithmetic on a "2026-07-28" key. Deliberately zone-free: a date key
- * names a square on a calendar, not an instant, so shifting it by a day is
- * counting squares. Going through a zone here would make the last Sunday in
- * October ambiguous for no reason.
- */
+/** Zone-free calendar arithmetic on a date key; a key names a calendar square, not an instant, so DST can't make the last Sunday in October ambiguous. */
 export function shiftDateKey(dateKey: string, days: number): string {
   const [year, month, day] = dateKey.split("-").map(Number);
   const shifted = new Date(Date.UTC(year, month - 1, day + days));
@@ -113,13 +97,13 @@ export function daysBetweenDateKeys(from: string, to: string): number {
   return Math.round((Date.UTC(ty, tm - 1, td) - Date.UTC(fy, fm - 1, fd)) / 86_400_000);
 }
 
-/** "2026-W31" — ISO week, so it starts Monday. */
+/** "2026-W31"; ISO week starts Monday. */
 export function weekKey(instant: Date, tz: string): string {
   const z = new TZDate(instant, tz);
   return `${getISOWeekYear(z)}-W${pad(getISOWeek(z))}`;
 }
 
-/** 1–53. The ISO week number on its own, for the header. */
+/** 1-53. ISO week number on its own, for the header. */
 export function isoWeekNumber(instant: Date, tz: string): number {
   return getISOWeek(new TZDate(instant, tz));
 }
@@ -160,9 +144,10 @@ export function shiftWeeks(instant: Date, tz: string, delta: number): Date {
   return new Date(addWeeks(new TZDate(instant, tz), delta).getTime());
 }
 
-// ---------------------------------------------------------------------------
-// Formatting
-// ---------------------------------------------------------------------------
+/** Shift an ISO string by a fixed number of milliseconds, returning an ISO string. */
+export function shiftInstant(iso: string, ms: number): string {
+  return new Date(new Date(iso).getTime() + ms).toISOString();
+}
 
 /** "09:12" in the home zone. */
 export function formatClock(instant: Date, tz: string): string {
@@ -181,11 +166,7 @@ export function formatMinutesAsClock(minutes: number): string {
   return `${pad(Math.floor(wrapped / 60))}:${pad(wrapped % 60)}`;
 }
 
-/**
- * The same minute on a 12-hour clock: 540 -> "9:00 am", 0 -> "12:00 am". For the
- * dial, which has a 12-hour face and says which half of the day it means with a
- * pair of buttons rather than by position.
- */
+/** Same minute on a 12-hour clock: 540 -> "9:00 am", 0 -> "12:00 am". The dial uses am/pm buttons, so 12-hour suffices. */
 export function formatMinutesAs12Hour(minutes: number): string {
   const wrapped = ((minutes % 1440) + 1440) % 1440;
   const hours = Math.floor(wrapped / 60);
@@ -199,7 +180,7 @@ export function formatDurationClock(minutes: number): string {
   return `${pad(Math.floor(total / 60))}:${pad(total % 60)}:00`;
 }
 
-/** "8h 12m" / "45m" / "0m" — for the UI, not for export. */
+/** "8h 12m" / "45m" / "0m"; UI only, not export. */
 export function formatDurationHuman(minutes: number): string {
   const total = Math.max(0, Math.round(minutes));
   const hours = Math.floor(total / 60);
@@ -209,7 +190,7 @@ export function formatDurationHuman(minutes: number): string {
   return `${hours}h ${mins}m`;
 }
 
-/** "2:05:31" — the live running clock, the one place seconds are shown. */
+/** "2:05:31"; the live running clock, the only place seconds are shown. */
 export function formatElapsedWithSeconds(ms: number): string {
   const total = Math.max(0, Math.floor(ms / 1000));
   const hours = Math.floor(total / 3600);
@@ -218,17 +199,12 @@ export function formatElapsedWithSeconds(ms: number): string {
   return `${hours}:${pad(minutes)}:${pad(seconds)}`;
 }
 
-/** Decimal hours, rounded to 2dp — for charts and goal deltas. */
+/** Decimal hours, 2dp; for charts and goal deltas. */
 export function minutesToHours(minutes: number): number {
   return Math.round((minutes / 60) * 100) / 100;
 }
 
-/**
- * What a half-typed time field should show, so the colon never has to be typed.
- * "0930" becomes "09:30", and "930" becomes "9:30", because 93 is not an hour,
- * so the first digit was the whole of it. A colon you typed yourself is left where you
- * put it, which is what keeps "9:" from collapsing back to "9" mid-entry.
- */
+/** Half-typed time field auto-inserts the colon: "0930" -> "09:30", "930" -> "9:30" (93 is not an hour). A typed colon stays put, so "9:" doesn't collapse to "9". */
 export function maskClockInput(raw: string): string {
   const colon = raw.indexOf(":");
   if (colon >= 0) {
@@ -264,10 +240,7 @@ export function formatDayOfMonth(instant: Date, tz: string): number {
   return new TZDate(instant, tz).getDate();
 }
 
-/**
- * "Jul-1", "Aug-12" — the one calendar-date format the UI uses. Unpadded day,
- * so it reads as a date rather than as a code.
- */
+/** "Jul-1", "Aug-12"; the UI's one calendar-date format. Unpadded day so it reads as a date, not code. */
 export function formatDayLabel(instant: Date, tz: string, locale = "en-GB"): string {
   const month = new Intl.DateTimeFormat(locale, { month: "short", timeZone: tz }).format(
     instant,

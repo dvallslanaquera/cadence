@@ -1,7 +1,4 @@
-/**
- * Served as a route rather than a static file so it is never caught by the
- * auth middleware and always returns the right content type.
- */
+/** Route, not a static file, so it stays outside the auth middleware and keeps the right content type. */
 export function GET() {
   return Response.json(
     {

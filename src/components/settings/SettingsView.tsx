@@ -28,7 +28,6 @@ import {
 } from "@/components/ui/primitives";
 import type { Project } from "@/lib/types";
 
-/** A short list of common zones, plus whatever the browser reports. */
 function timezoneOptions(current: string): string[] {
   const browser = Intl.DateTimeFormat().resolvedOptions().timeZone;
   const common = [
@@ -73,8 +72,7 @@ export function SettingsView() {
 
   function pickTheme(id: string) {
     setTheme(id);
-    // Apply at once so the recolour is instant; ThemeSync reconciles after the
-    // refetch and keeps it in step with anything that changes the row elsewhere.
+    // Apply immediately so the recolour is instant; ThemeSync reconciles after the refetch.
     const el = document.documentElement;
     if (id === "system") delete el.dataset.theme;
     else el.dataset.theme = id;

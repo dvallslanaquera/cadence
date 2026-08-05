@@ -101,11 +101,7 @@ export function Field({
   label,
   children,
   className,
-  /**
-   * Render a plain div instead of a label. Needed when the control is a button:
-   * a label forwards its activation to the button it wraps, which would toggle
-   * a popover trigger twice on one click.
-   */
+  // Plain div when the control is a button: a label forwards activation to its wrapped button, toggling a popover trigger twice per click.
   as = "label",
 }: {
   label: string;

@@ -1,19 +1,9 @@
-/**
- * UI translation. English is the source language and the fallback for any key
- * missing a language. The dictionary is flat and dotted ("nav.week") so a key
- * is one lookup; the file has no React or query imports, so the server (the
- * alert email service, the schema enum) can import it without pulling client
- * code into the server bundle.
- */
+// UI translation. English is the source and the fallback for any missing key. Flat dotted keys ("nav.week") for one lookup; no React or query imports, so the server (alert email, schema enum) can import this without pulling client code into the server bundle.
 
 export const LANGUAGE_IDS = ["en", "es", "fr", "it", "ja"] as const;
 export type Lang = (typeof LANGUAGE_IDS)[number];
 
-/**
- * The languages the Settings picker offers. `label` is the English name and is
- * always shown as-is, so "Language" and its option names stay English per the
- * roadmap. `locale` is the BCP47 tag threaded into the date formatters.
- */
+// `label` is the English name, always shown as-is, so "Language" and its option names stay English. `locale` is the BCP47 tag threaded into the date formatters.
 export const LANGUAGES: { id: Lang; label: string; locale: string }[] = [
   { id: "en", label: "English", locale: "en-GB" },
   { id: "es", label: "Spanish", locale: "es" },
@@ -33,13 +23,11 @@ export function localeFor(lang: Lang): string {
 type Translations = Partial<Record<Lang, string>>;
 
 export const DICTIONARY: Record<string, Translations> = {
-  // ---- Navigation ----
   "nav.week": { en: "Week", es: "Semana", fr: "Semaine", it: "Settimana", ja: "週" },
   "nav.backlog": { en: "Backlog", es: "Tareas", fr: "Tâches", it: "Attività", ja: "バックログ" },
   "nav.dashboard": { en: "Dashboard", es: "Panel", fr: "Tableau", it: "Cruscotto", ja: "ダッシュボード" },
   "nav.settings": { en: "Settings", es: "Ajustes", fr: "Réglages", it: "Impostazioni", ja: "設定" },
 
-  // ---- Running timer bar ----
   "timer.idle": {
     en: "No timer running. Press play to start one.",
     es: "No hay temporizador activo. Pulsa play para iniciar uno.",
@@ -72,7 +60,6 @@ export const DICTIONARY: Record<string, Translations> = {
     ja: "アラート確認が遅延",
   },
 
-  // ---- Week view chrome ----
   "week.prev": { en: "Previous week", es: "Semana anterior", fr: "Semaine précédente", it: "Settimana precedente", ja: "前の週" },
   "week.next": { en: "Next week", es: "Semana siguiente", fr: "Semaine suivante", it: "Settimana successiva", ja: "次の週" },
   "week.today": { en: "Today", es: "Hoy", fr: "Aujourd'hui", it: "Oggi", ja: "今日" },
@@ -97,7 +84,6 @@ export const DICTIONARY: Record<string, Translations> = {
     ja: "ダブルクリックでそこからタイマーを開始（15分単位にスナップ） · ドラッグで正確な範囲を指定 · 過去の日をダブルクリックすると {block} 分のブロックを記録 · ドラッグ中に Alt で分単位の精度 · Ctrl+スクロールでズーム",
   },
 
-  // ---- Entry editor ----
   "entry.delete": { en: "Delete entry", es: "Eliminar entrada", fr: "Supprimer l'entrée", it: "Elimina voce", ja: "エントリーを削除" },
   "entry.project": { en: "Project", es: "Proyecto", fr: "Projet", it: "Progetto", ja: "プロジェクト" },
   "entry.start": { en: "Start", es: "Inicio", fr: "Début", it: "Inizio", ja: "開始" },
@@ -110,7 +96,6 @@ export const DICTIONARY: Record<string, Translations> = {
   "entry.save": { en: "Save", es: "Guardar", fr: "Enregistrer", it: "Salva", ja: "保存" },
   "entry.endDayOffset": { en: "{n}d", es: "{n}d", fr: "{n}j", it: "{n}g", ja: "{n}日" },
 
-  // ---- Day task strip ----
   "taskstrip.due": { en: "{n} due", es: "{n} pendiente", fr: "{n} à faire", it: "{n} da fare", ja: "残り {n}" },
   "taskstrip.done": { en: "{n} done", es: "{n} hechas", fr: "{n} faites", it: "{n} fatte", ja: "完了 {n}" },
   "taskstrip.changeProject": {
@@ -122,7 +107,6 @@ export const DICTIONARY: Record<string, Translations> = {
   },
   "taskstrip.start": { en: "Start {name}", es: "Iniciar {name}", fr: "Démarrer {name}", it: "Avvia {name}", ja: "{name} を開始" },
 
-  // ---- Project picker ----
   "project.frequent": { en: "Frequent", es: "Frecuentes", fr: "Fréquents", it: "Frequenti", ja: "よく使う" },
   "project.all": { en: "All projects", es: "Todos los proyectos", fr: "Tous les projets", it: "Tutti i progetti", ja: "すべてのプロジェクト" },
   "project.namePlaceholder": { en: "Project name", es: "Nombre del proyecto", fr: "Nom du projet", it: "Nome progetto", ja: "プロジェクト名" },
@@ -141,7 +125,6 @@ export const DICTIONARY: Record<string, Translations> = {
     ja: "{entries}と{tasks}を「その他」に移動しました",
   },
 
-  // ---- Clock range dial ----
   "dial.aria": { en: "Time range dial", es: "Selector de intervalo", fr: "Cadran de plage", it: "Selettore intervallo", ja: "時間範囲ダイヤル" },
   "dial.start": { en: "Start time", es: "Hora de inicio", fr: "Heure de début", it: "Ora di inizio", ja: "開始時刻" },
   "dial.end": { en: "End time", es: "Hora de fin", fr: "Heure de fin", it: "Ora di fine", ja: "終了時刻" },
@@ -164,17 +147,14 @@ export const DICTIONARY: Record<string, Translations> = {
     ja: "ハンドルをドラッグ · AM/PM で{handle}を移動 · Alt で1分単位",
   },
 
-  // ---- Colour swatch picker ----
   "color.change": { en: "Change colour", es: "Cambiar color", fr: "Changer la couleur", it: "Cambia colore", ja: "色を変更" },
   "color.changeProject": { en: "Change project colour", es: "Cambiar color del proyecto", fr: "Changer la couleur du projet", it: "Cambia colore progetto", ja: "プロジェクトの色を変更" },
   "color.custom": { en: "Custom colour", es: "Color personalizado", fr: "Couleur personnalisée", it: "Colore personalizzato", ja: "カスタム色" },
   "color.use": { en: "Use {swatch}", es: "Usar {swatch}", fr: "Utiliser {swatch}", it: "Usa {swatch}", ja: "{swatch} を使用" },
 
-  // ---- Confirm dialog / time input ----
   "confirm.confirm": { en: "Confirm", es: "Confirmar", fr: "Confirmer", it: "Conferma", ja: "確認" },
   "confirm.cancel": { en: "Cancel", es: "Cancelar", fr: "Annuler", it: "Annulla", ja: "キャンセル" },
 
-  // ---- Dashboard ----
   "dash.heading": { en: "Dashboard", es: "Panel", fr: "Tableau de bord", it: "Cruscotto", ja: "ダッシュボード" },
   "dash.range.week": { en: "This week", es: "Esta semana", fr: "Cette semaine", it: "Questa settimana", ja: "今週" },
   "dash.range.month": { en: "4 weeks", es: "4 semanas", fr: "4 semaines", it: "4 settimane", ja: "4週間" },
@@ -188,7 +168,6 @@ export const DICTIONARY: Record<string, Translations> = {
     ja: "実行中のタイマーは現在までカウントされるため、今日の数値は作業中に変化します。真夜夜をまたぐエントリーはローカル日の境界で分割され、それぞれの日が実際の分数を正しく受け取ります。",
   },
 
-  // ---- Summary strip ----
   "summary.total": { en: "Total tracked", es: "Total registrado", fr: "Total suivi", it: "Totale registrato", ja: "合計記録" },
   "summary.avg": { en: "Average per active day", es: "Media por día activo", fr: "Moyenne par jour actif", it: "Media per giorno attivo", ja: "活動日あたりの平均" },
   "summary.longest": { en: "Longest day", es: "Día más largo", fr: "Journée la plus longue", it: "Giorno più lungo", ja: "最長の日" },
@@ -210,7 +189,6 @@ export const DICTIONARY: Record<string, Translations> = {
     ja: "平日{weeks}週の{goal}時間/日の目標に対し、{vsGoal}時間です。",
   },
 
-  // ---- Project donut ----
   "donut.title": { en: "Time by project", es: "Tiempo por proyecto", fr: "Temps par projet", it: "Tempo per progetto", ja: "プロジェクト別時間" },
   "donut.empty.title": { en: "No time tracked in this range", es: "Sin tiempo registrado en este rango", fr: "Aucun temps suivi dans cette plage", it: "Nessun tempo registrato in questo range", ja: "この期間に記録された時間はありません" },
   "donut.empty.body": { en: "Nothing to show yet", es: "Nada que mostrar todavía", fr: "Rien à afficher pour l'instant", it: "Niente da mostrare ancora", ja: "表示できるものはまだありません" },
@@ -220,14 +198,12 @@ export const DICTIONARY: Record<string, Translations> = {
   "donut.col.tracked": { en: "Tracked", es: "Registrado", fr: "Suivi", it: "Registrato", ja: "記録" },
   "donut.col.share": { en: "Share", es: "Cuota", fr: "Part", it: "Quota", ja: "割合" },
 
-  // ---- Hours per day chart ----
   "chart.perDay.title": { en: "Hours per day", es: "Horas por día", fr: "Heures par jour", it: "Ore al giorno", ja: "1日あたりの時間" },
   "chart.perDay.subtitle": { en: "Goal {goal}h · dashed line", es: "Objetivo {goal}h · línea discontinua", fr: "Objectif {goal}h · ligne en pointillés", it: "Obiettivo {goal}h · linea tratteggiata", ja: "目標 {goal}h · 破線" },
   "chart.perDay.col.day": { en: "Day", es: "Día", fr: "Jour", it: "Giorno", ja: "日" },
   "chart.perDay.col.tracked": { en: "Tracked", es: "Registrado", fr: "Suivi", it: "Registrato", ja: "記録" },
   "chart.perDay.col.vsgoal": { en: "vs goal", es: "vs objetivo", fr: "vs objectif", it: "vs obiettivo", ja: "目標比" },
 
-  // ---- Hours per week chart ----
   "chart.perWeek.title": { en: "Hours per week", es: "Horas por semana", fr: "Heures par semaine", it: "Ore a settimana", ja: "週あたりの時間" },
   "chart.perWeek.subtitle": {
     en: "Last {weeks} weeks · goal {goal}h/week",
@@ -245,7 +221,6 @@ export const DICTIONARY: Record<string, Translations> = {
 
   "panel.showNumbers": { en: "Show the numbers", es: "Mostrar los números", fr: "Afficher les chiffres", it: "Mostra i numeri", ja: "数値を表示" },
 
-  // ---- Settings ----
   "settings.heading": { en: "Settings", es: "Ajustes", fr: "Réglages", it: "Impostazioni", ja: "設定" },
   "settings.timezone.title": { en: "Home time zone", es: "Zona horaria principal", fr: "Fuseau horaire de référence", it: "Fuso orario principale", ja: "基準タイムゾーン" },
   "settings.timezone.copy": {
@@ -331,7 +306,6 @@ export const DICTIONARY: Record<string, Translations> = {
   "projects.cancel": { en: "Cancel", es: "Cancelar", fr: "Annuler", it: "Annulla", ja: "キャンセル" },
   "projects.deleteReassign": { en: "Delete and reassign", es: "Eliminar y reasignar", fr: "Supprimer et réaffecter", it: "Elimina e riassegna", ja: "削除して再割り当て" },
 
-  // ---- Theme ----
   "theme.title": { en: "Theme", es: "Tema", fr: "Thème", it: "Tema", ja: "テーマ" },
   "theme.copy": {
     en: "System follows your OS; the rest force a palette. Picked here, applied at once.",
@@ -349,14 +323,12 @@ export const DICTIONARY: Record<string, Translations> = {
   "theme.slate": { en: "Slate", es: "Pizarra", fr: "Ardoise", it: "Ardesia", ja: "スレート" },
   "theme.terminal": { en: "Terminal", es: "Terminal", fr: "Terminal", it: "Terminale", ja: "ターミナル" },
 
-  // ---- Page titles ----
   "page.week": { en: "Week", es: "Semana", fr: "Semaine", it: "Settimana", ja: "週" },
   "page.backlog": { en: "Backlog", es: "Tareas", fr: "Tâches", it: "Attività", ja: "バックログ" },
   "page.dashboard": { en: "Dashboard", es: "Panel", fr: "Tableau de bord", it: "Cruscotto", ja: "ダッシュボード" },
   "page.settings": { en: "Settings", es: "Ajustes", fr: "Réglages", it: "Impostazioni", ja: "設定" },
   "page.signin": { en: "Sign in", es: "Iniciar sesión", fr: "Connexion", it: "Accedi", ja: "サインイン" },
 
-  // ---- Login ----
   "login.heading": { en: "Cadence", es: "Cadence", fr: "Cadence", it: "Cadence", ja: "Cadence" },
   "login.subtitle": {
     en: "This instance is private. Sign in with your email and password.",
@@ -377,13 +349,11 @@ export const DICTIONARY: Record<string, Translations> = {
     ja: "メールまたはパスワードが正しくありません。",
   },
 
-  // ---- Toasts ----
   "toast.somethingWrong": { en: "Something went wrong", es: "Algo salió mal", fr: "Une erreur s'est produite", it: "Qualcosa è andato storto", ja: "問題が発生しました" },
   "toast.entryDeleted": { en: "Entry deleted", es: "Entrada eliminada", fr: "Entrée supprimée", it: "Voce eliminata", ja: "エントリーを削除しました" },
   "toast.undo": { en: "Undo", es: "Deshacer", fr: "Annuler", it: "Annulla", ja: "元に戻す" },
   "toast.settingsSaved": { en: "Settings saved", es: "Ajustes guardados", fr: "Réglages enregistrés", it: "Impostazioni salvate", ja: "設定を保存しました" },
 
-  // ---- Export ----
   "export.button": { en: "Export", es: "Exportar", fr: "Exporter", it: "Esporta", ja: "エクスポート" },
   "export.hint": {
     en: "CSV export columns. Only completed entries are exported.",
@@ -396,7 +366,6 @@ export const DICTIONARY: Record<string, Translations> = {
   "export.to": { en: "To", es: "Hasta", fr: "À", it: "A", ja: "終了" },
   "export.download": { en: "Download CSV", es: "Descargar CSV", fr: "Télécharger CSV", it: "Scarica CSV", ja: "CSVをダウンロード" },
 
-  // ---- Backlog ----
   "backlog.heading": { en: "Backlog", es: "Tareas", fr: "Tâches", it: "Attività", ja: "バックログ" },
   "backlog.placeholder": { en: "What needs doing?", es: "¿Qué hay que hacer?", fr: "Que faut-il faire ?", it: "Cosa da fare?", ja: "何をしますか？" },
   "backlog.section.work": { en: "Work-related tasks", es: "Tareas de trabajo", fr: "Tâches liées au travail", it: "Attività di lavoro", ja: "作業関連タスク" },
@@ -437,7 +406,6 @@ export const DICTIONARY: Record<string, Translations> = {
   "backlog.edit.cancel": { en: "Cancel", es: "Cancelar", fr: "Annuler", it: "Annulla", ja: "キャンセル" },
   "backlog.edit.save": { en: "Save", es: "Guardar", fr: "Enregistrer", it: "Salva", ja: "保存" },
 
-  // ---- Alert email (server-side) ----
   "email.subject": { en: "Timer running for {elapsed}h, {label}", es: "Temporizador en marcha durante {elapsed}h, {label}", fr: "Minuteur en cours depuis {elapsed}h, {label}", it: "Timer in corso da {elapsed}h, {label}", ja: "タイマーが{elapsed}時間実行中、{label}" },
   "email.line1": {
     en: "A Cadence timer has been running for {elapsed} hours.",

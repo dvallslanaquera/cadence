@@ -1,21 +1,4 @@
-/**
- * Aggregation happens in SQL, not in Node. That matters for entries spanning
- * midnight: each day is clipped to its own local bounds, so a 22:00 -> 02:00
- * entry contributes its real minutes to both days. See ARCHITECTURE.md §6.
- *
- * `AT TIME ZONE` is used in both directions:
- *   timestamptz AT TIME ZONE tz -> local wall time (for bucketing)
- *   timestamp   AT TIME ZONE tz -> the instant that wall time happened
- *
- * Running entries count up to NOW(), so today's numbers move as you work.
- *
- * The `FILTER (WHERE e.id IS NOT NULL)` on every bucketed SUM is load-bearing.
- * generate_series LEFT JOINs entries, so a bucket with no time produces one
- * all-NULL row — and that row does NOT sum to nothing: COALESCE turns the null
- * end into NOW(), while GREATEST silently ignores the null start and returns
- * the bucket's own start. An empty day used to report a full 24 hours and an
- * empty week a full 168. The filter drops those phantom rows before they sum.
- */
+/** Aggregation in SQL so entries spanning midnight split across days. The `FILTER (WHERE e.id IS NOT NULL)` is load-bearing — without it, generate_series LEFT JOIN rows sum to 24h/168h phantoms. See ARCHITECTURE.md §6. */
 import { db } from "@/server/db";
 
 export interface DailyStat {

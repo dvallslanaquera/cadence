@@ -1,9 +1,4 @@
-/**
- * The runaway-timer check. See ARCHITECTURE.md §12.
- *
- * At most one entry can be running (partial unique index), so "any task over
- * 12h" is always zero or one row — findFirst is enough.
- */
+/** Runaway-timer check; the partial unique index guarantees at most one running entry, so findFirst is enough. See ARCHITECTURE.md §12. */
 import { Resend } from "resend";
 import { db } from "@/server/db";
 import { getSettings } from "@/server/settings";
@@ -26,8 +21,7 @@ export async function runAlertCheck(): Promise<AlertCheckResult> {
     include: { project: { select: { name: true } }, task: { select: { name: true } } },
   });
 
-  // Stamp the heartbeat whatever happens — a check that found nothing is still
-  // proof the scheduler is alive.
+  // Stamp the heartbeat whatever happens — a check that found nothing is still proof the scheduler is alive.
   await db.settings.update({ where: { id: 1 }, data: { lastAlertCheckAt: now } });
 
   if (!settings.alertsEnabled) return { sent: false, reason: "alerts disabled" };
@@ -47,8 +41,7 @@ export async function runAlertCheck(): Promise<AlertCheckResult> {
     lang: isLang(settings.language) ? settings.language : "en",
   });
 
-  // Only stamp after the send succeeds, so a transient email failure retries
-  // on the next run instead of silently swallowing the alert.
+  // Only stamp after the send succeeds, so a transient email failure retries on the next run instead of silently swallowing the alert.
   await db.timeEntry.update({
     where: { id: running.id },
     data: { alertSentAt: now },

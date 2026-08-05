@@ -13,10 +13,7 @@ export interface SettingsDto {
   lastAlertCheckAt: string | null;
 }
 
-/**
- * Upsert rather than findUnique, so a fresh database is self-healing even if
- * the seed hasn't run. The check constraint keeps it to one row.
- */
+/** Upsert so a fresh database self-heals without the seed; the check constraint keeps it to one row. */
 export async function getSettings(): Promise<Settings> {
   return db.settings.upsert({ where: { id: 1 }, update: {}, create: { id: 1 } });
 }
@@ -25,31 +22,19 @@ export async function getTimezone(): Promise<string> {
   return (await getSettings()).timezone;
 }
 
-/**
- * Read-only theme lookup for the root layout, which runs per request. A fresh
- * database with no Settings row yet falls back to System; the row is created
- * elsewhere (seed, or the first settings API call) so this never writes.
- */
+/** Read-only theme lookup for the per-request root layout; falls back to System when no Settings row exists yet. */
 export async function getTheme(): Promise<string> {
   const settings = await db.settings.findUnique({ where: { id: 1 }, select: { theme: true } });
   return settings?.theme ?? "system";
 }
 
-/**
- * Read-only language lookup, mirroring getTheme. The root layout sets
- * <html lang> from it so the first frame is already localised; the alert
- * email service reads it to translate the body. Defaults to English.
- */
+/** Read-only language lookup; the root layout sets <html lang> from it so the first frame is localised. Defaults to English. */
 export async function getLanguage(): Promise<string> {
   const settings = await db.settings.findUnique({ where: { id: 1 }, select: { language: true } });
   return settings?.language ?? "en";
 }
 
-/**
- * getLanguage as a validated Lang, defaulting to English on a missing row, an
- * unreachable database, or a value outside the known set. Used by the page
- * metadata generators so a bad row never breaks the title.
- */
+/** getLanguage as a validated Lang, defaulting to English so a bad or missing row never breaks page metadata. */
 export async function getLanguageSafe(): Promise<Lang> {
   try {
     const lang = await getLanguage();

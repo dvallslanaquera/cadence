@@ -66,11 +66,7 @@ async function syncTags(tx: Tx, entryId: string, names: string[]): Promise<void>
   }
 }
 
-/**
- * Rejects overlaps with a message naming the conflict. The exclusion constraint
- * in the database is what makes the rule true under concurrency; this exists so
- * the user sees something readable. See ARCHITECTURE.md §4.
- */
+/** Overlaps are rejected with a readable message; the DB exclusion constraint enforces it under concurrency. See ARCHITECTURE.md §4. */
 async function assertNoConflicts(
   tx: Tx,
   candidate: { id?: string; startedAt: Date; endedAt: Date },
@@ -109,11 +105,6 @@ async function assertNoConflicts(
   }
 }
 
-// ---------------------------------------------------------------------------
-// Queries
-// ---------------------------------------------------------------------------
-
-/** Every entry overlapping [from, to), plus the running one if it reaches in. */
 export async function listEntries(from: Date, to: Date): Promise<EntryDto[]> {
   const rows = await db.timeEntry.findMany({
     where: {
@@ -126,21 +117,7 @@ export async function listEntries(from: Date, to: Date): Promise<EntryDto[]> {
   return rows.map(toEntryDto);
 }
 
-/**
- * Every description you have used before, most-used first, for the editor's
- * autocomplete. Ranked by use count rather than alphabetically: the point is to
- * retype "Interview preparation" in two keystrokes, and the block you log every
- * week should be the one waiting at the top. Ties go to the most recent.
- *
- * Each description carries the project it was most recently logged under, so
- * the editor can switch to it the moment you pick a description from the list
- * rather than making you re-pick the project every time. Archived projects are
- * left out of that count. A description whose usual project was retired should
- * not pull new time back into it.
- *
- * The whole list goes to the browser and is filtered there, a few hundred short
- * strings against a request per keystroke. See ARCHITECTURE.md §8.
- */
+/** Most-used descriptions first for autocomplete, each with its most-recent non-archived project so the editor switches on pick. See ARCHITECTURE.md §8. */
 export async function descriptionHistory(limit: number): Promise<DescriptionSuggestion[]> {
   const top = await db.timeEntry.groupBy({
     by: ["description"],
@@ -154,11 +131,7 @@ export async function descriptionHistory(limit: number): Promise<DescriptionSugg
   const descriptions = top.map((row) => row.description);
   if (descriptions.length === 0) return [];
 
-  // The most-recent project for each description. Rows are ordered by
-  // description, then recency of the last entry under that project, then entry
-  // count, so the first row per description is the one to keep. Archived
-  // projects never win, so a description whose home project was retired has no
-  // project here and the editor leaves the current one alone.
+  // First row per description wins; archived projects never win, so a retired home project leaves the editor's current pick alone.
   const byProject = await db.timeEntry.groupBy({
     by: ["description", "projectId"],
     where: { description: { in: descriptions }, project: { archivedAt: null } },
@@ -190,10 +163,6 @@ export async function getRunningEntry(): Promise<EntryDto | null> {
   return row ? toEntryDto(row) : null;
 }
 
-// ---------------------------------------------------------------------------
-// Mutations
-// ---------------------------------------------------------------------------
-
 export async function createEntry(
   input: z.infer<typeof entryCreateSchema>,
   timezone: string,
@@ -205,8 +174,7 @@ export async function createEntry(
     await assertNoConflicts(tx, { startedAt, endedAt }, timezone);
     const created = await tx.timeEntry.create({
       data: {
-        // Undefined falls back to the column default; the browser only supplies
-        // an id when its editor is already open on that row.
+        // Undefined falls back to the column default; the browser only supplies an id when its editor is already open on that row.
         id: input.id,
         description: input.description,
         projectId: await resolveProjectId(tx, input.projectId),
@@ -271,21 +239,7 @@ export async function deleteEntry(id: string): Promise<void> {
   await db.timeEntry.delete({ where: { id } });
 }
 
-/**
- * Stop whatever is running and start something new, atomically.
- *
- * The two entries abut exactly: the old one ends at the instant the new one
- * begins. Half-open ranges mean that is not an overlap. If the running entry is
- * less than a minute old we give it its one-minute minimum and start the new
- * entry there, rather than writing a zero-length row the check constraint
- * would reject.
- *
- * `input.startedAt` moves the start back to a minute that has already passed,
- * a click on the grid at 09:00 when it is 09:40. It cannot reach into the future
- * (nothing is "currently" happening later) and it cannot reach back past the
- * timer already running, because stopping that one at an instant before it began
- * is not a state the database will hold.
- */
+/** Stops the running entry and starts a new one atomically; entries abut exactly with a one-minute minimum. `startedAt` can move back to a past minute but not into the future or before the running timer. */
 export async function startTimer(
   input: z.infer<typeof timerStartSchema>,
   timezone = "UTC",

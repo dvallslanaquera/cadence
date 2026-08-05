@@ -10,35 +10,19 @@ import { Input } from "./primitives";
 export interface DescriptionInputProps {
   value: string;
   onChange: (value: string) => void;
-  /**
-   * A description was chosen from the list, not typed. Carries the project that
-   * description is most often logged under so the editor can switch to it — the
-   * one field you would otherwise re-pick every time you reused a description.
-   */
+  /** Fired when a description is chosen from the list (not typed), carrying the project it's most often logged under so the editor can switch to it. */
   onSelectSuggestion?: (description: string, projectId: string | null) => void;
   /** Enter on the field with no suggestion highlighted. */
   onSubmit: () => void;
   /** Escape with the list already closed. */
   onCancel: () => void;
-  /**
-   * Reports whether the list is showing. The editor above needs it because Radix
-   * listens for Escape on the document in the capture phase, so nothing this
-   * component does in its own handler can stop the popover closing first. Keep it
-   * stable, since it fires from an effect keyed on the callback and the state.
-   */
+  /** Reports list visibility; Radix listens for Escape on the document in capture phase, so this component can't stop the popover closing first. Keep the callback stable. */
   onOpenChange?: (open: boolean) => void;
   placeholder?: string;
   autoFocus?: boolean;
 }
 
-/**
- * The description field, with what you have logged before behind it.
- *
- * The list appears once you start typing rather than on focus: opening the editor
- * on an existing entry should show you the entry, not a menu covering the project
- * and the dial below it. Matching runs against the whole history in memory, so
- * the rows keep up with the keyboard.
- */
+// Description field with history suggestions. List opens on typing, not focus, so editing an existing entry shows the entry, not a menu covering the fields below.
 export function DescriptionInput({
   value,
   onChange,
@@ -53,14 +37,10 @@ export function DescriptionInput({
   const inputRef = useRef<HTMLInputElement>(null);
   const listId = useId();
 
-  // Typing opens the list; choosing, Escape or leaving the field closes it.
   const [typing, setTyping] = useState(false);
   const [highlight, setHighlight] = useState(-1);
 
-  // The history arrives already ordered by how often each description has been
-  // used, so ranking only filters and breaks ties. The project each one pairs
-  // with is held alongside so a chosen description can carry its project up to
-  // the editor in one step.
+  // History arrives ordered by frequency, so ranking only filters and breaks ties; the paired project rides along so a chosen description carries its project up to the editor.
   const descriptions = useMemo(() => (history ?? []).map((item) => item.description), [history]);
   const suggestions = useMemo(
     () => rankSuggestions(descriptions, value, DESCRIPTION_SUGGESTION_COUNT),
@@ -86,8 +66,6 @@ export function DescriptionInput({
 
   function choose(suggestion: string) {
     onChange(suggestion);
-    // The project follows the description. Picking "Interview preparation"
-    // lands on the project you log it under.
     onSelectSuggestion?.(suggestion, projectByDescription.get(suggestion) ?? null);
     close();
     inputRef.current?.focus();
@@ -95,8 +73,7 @@ export function DescriptionInput({
 
   function onKeyDown(event: KeyboardEvent<HTMLInputElement>) {
     if (event.key === "Escape") {
-      // The popover's own Escape handling is suppressed while the list is up, so
-      // the first press lands here and only closes the list.
+      // The popover's own Escape handling is suppressed while the list is up, so the first press lands here and only closes the list.
       if (open) close();
       else onCancel();
       return;
@@ -117,8 +94,7 @@ export function DescriptionInput({
     if (event.key === "ArrowDown" || event.key === "ArrowUp") {
       event.preventDefault();
       const step = event.key === "ArrowDown" ? 1 : -1;
-      // Past either end you come back to the text you typed, which is the only
-      // way to get your own half-finished words back without deleting a choice.
+      // Past either end wraps back to the typed text, the only way to recover half-finished words without deleting a choice.
       const next = highlight + step;
       setHighlight(next < -1 ? suggestions.length - 1 : next >= suggestions.length ? -1 : next);
       return;
@@ -165,8 +141,7 @@ export function DescriptionInput({
               type="button"
               role="option"
               aria-selected={index === highlight}
-              // Keep the caret in the field: a focus change here would fire the
-              // input's blur and close the list before the click landed.
+              // Keep the caret in the field: a focus change here would fire the input's blur and close the list before the click landed.
               onMouseDown={(event) => event.preventDefault()}
               onMouseEnter={() => setHighlight(index)}
               onClick={() => choose(suggestion)}

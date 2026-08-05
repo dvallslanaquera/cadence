@@ -8,14 +8,13 @@ const field =
   "mt-1 w-full rounded-lg border border-border bg-bg px-3 py-2 text-sm text-fg outline-none transition focus:border-accent";
 const labelClass = "block text-xs font-medium text-fg-muted";
 
-/** The English literal the server action returns on bad credentials. */
+/** English literal the server action returns on bad credentials. */
 const INVALID_CREDENTIALS = "Invalid email or password.";
 
 export function LoginForm({ lang }: { lang: Lang }) {
   const [error, formAction, pending] = useActionState(authenticate, undefined);
 
-  // The server action contract stays English; map its known literal to the
-  // translated message so anything else (unexpected) shows as-is.
+  // Server action returns English; map the known literal to translated, anything else shows as-is.
   const message =
     error === INVALID_CREDENTIALS ? t("login.error.invalid", undefined, lang) : error;
 

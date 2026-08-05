@@ -1,11 +1,7 @@
 import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 
-/**
- * Single-user auth: email + password checked against env vars. No user table,
- * no password hashing, no OAuth provider to register. JWT sessions, so there is
- * no adapter. See ARCHITECTURE.md §15.
- */
+/** Single-user auth: email + password against env vars, no user table or hashing, JWT sessions so no adapter. See ARCHITECTURE.md §15. */
 export const { handlers, auth, signIn, signOut } = NextAuth({
   providers: [
     Credentials({
@@ -33,18 +29,11 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   ],
   session: { strategy: "jwt" },
   pages: { signIn: "/login" },
-  /**
-   * Auth.js only auto-trusts the request host on recognised platforms, so
-   * without this `next start` and local dev fail with UntrustedHost even with
-   * valid credentials.
-   */
+  /** Auth.js only auto-trusts host on recognised platforms; without this `next start` and local dev fail with UntrustedHost even with valid credentials. */
   trustHost: true,
 });
 
-/**
- * Constant-time string compare, so a wrong guess leaks no timing signal about
- * how many bytes matched. Length differences are handled without short-circuit.
- */
+/** Constant-time compare so a wrong guess leaks no timing signal; length differences handled without short-circuit. */
 function safeEqualString(a: string, b: string): boolean {
   let mismatch = a.length ^ b.length;
   const len = Math.max(a.length, b.length);

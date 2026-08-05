@@ -2,7 +2,7 @@ import { z } from "zod";
 import { THEME_IDS } from "@/lib/constants";
 import { LANGUAGE_IDS } from "@/lib/i18n";
 
-/** Shared by the route handlers and the forms, so they cannot drift. */
+/** Shared by route handlers and forms, so they cannot drift. */
 
 const isoDateTime = z
   .string()
@@ -10,12 +10,7 @@ const isoDateTime = z
   .or(z.string().datetime())
   .transform((value) => new Date(value));
 
-/**
- * The id the browser has already given a row it is creating. The grid opens the
- * editor on a new block in the same frame as the click, before the write has
- * landed, so the row has to arrive carrying the id the editor is pointing at
- * instead of picking one up from the database.
- */
+// The id the browser has already given a row it is creating. The grid opens the editor on a new block before the write lands, so the row must arrive carrying the id the editor is pointing at instead of one from the database.
 const clientId = z.string().trim().min(1).max(64).optional();
 
 export const entryCreateSchema = z.object({
@@ -43,10 +38,7 @@ export const timerStartSchema = z.object({
   projectId: z.string().min(1).nullable().optional(),
   taskId: z.string().min(1).nullable().optional(),
   tags: z.array(z.string().trim().min(1).max(50)).max(20).default([]),
-  /**
-   * When the work began, for a click on the grid at a minute that has already
-   * passed. Omitted by the play button and the backlog, which mean "now".
-   */
+  /** When the work began, for a click on the grid at a minute that has already passed. Omitted by the play button and the backlog, which mean "now". */
   startedAt: isoDateTime.optional(),
 });
 
@@ -72,7 +64,7 @@ export const taskCreateSchema = z.object({
   projectId: z.string().min(1).nullable().optional(),
   /** Which half of the backlog this belongs in. */
   section: taskSectionSchema.default("WORK"),
-  /** A calendar date, "2026-07-28" — not an instant. */
+  /** A calendar date, "2026-07-28", not an instant. */
   dueDate: z
     .string()
     .regex(/^\d{4}-\d{2}-\d{2}$/)

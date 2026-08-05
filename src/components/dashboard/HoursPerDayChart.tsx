@@ -18,11 +18,6 @@ import { ChartTooltip, DataTable, Panel } from "./Panel";
 import { useT } from "@/lib/i18n-client";
 import type { DailyStat } from "@/lib/types";
 
-/**
- * Magnitude over an ordinal axis: bars. One series, so no legend box — the
- * title names it. The goal is a reference line, and the over/under delta is a
- * direct label under each bar.
- */
 export function HoursPerDayChart({
   days,
   goalHours,

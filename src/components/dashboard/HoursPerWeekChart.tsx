@@ -21,10 +21,6 @@ import type { WeeklyStat } from "@/lib/types";
 
 const ROLLING_WINDOW = 4;
 
-/**
- * Two series (weekly total + a 4-week trailing average), so a legend is
- * present — identity is never colour-alone.
- */
 export function HoursPerWeekChart({
   weeks,
   goalHours,

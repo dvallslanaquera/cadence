@@ -1,9 +1,6 @@
 /**
- * Overlap detection. The database enforces this too (ARCHITECTURE.md §4) —
- * this layer exists so the user gets "conflicts with Standup, 09:00–09:15"
- * instead of a raw constraint violation.
- *
- * All intervals are half-open: [start, end). Entries that abut exactly do not
+ * DB also enforces overlaps (ARCHITECTURE.md §4); this layer gives friendlier
+ * messages. Intervals are half-open [start, end) so abutting entries don't
  * conflict, which is what makes stop-then-start work.
  */
 
@@ -31,10 +28,7 @@ export function intervalsOverlap(
   return aStart < bEnd && bStart < aEnd;
 }
 
-/**
- * Every existing entry the candidate would collide with. A running entry is
- * treated as ending "now" — it occupies the present, not all of eternity.
- */
+/** Existing entries the candidate collides with; a running entry ends "now". */
 export function findConflicts<T extends Interval>(
   candidate: Candidate,
   existing: T[],

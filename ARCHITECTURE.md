@@ -369,13 +369,21 @@ src/
 │   └── api/…                   route handlers
 ├── components/
 │   ├── week/
-│   │   ├── WeekGrid.tsx        the scroll container + columns
-│   │   ├── DayColumn.tsx       one day, positions its blocks
-│   │   ├── EntryBlock.tsx      a drawn entry
+│   │   ├── WeekView.tsx        ~130 lines: state + hooks + the component tree wiring
+│   │   ├── WeekViewHeader.tsx  top bar: nav arrows, week label, totals, export, start button
+│   │   ├── MobileDayStrip.tsx  the 7-button day selector (mobile only)
+│   │   ├── DayHeaderRow.tsx     weekday, date, per-day total, task strip
+│   │   ├── WeekGrid.tsx        flex-1 scroll container: hour gutter + day columns
+│   │   ├── DayColumn.tsx       one day, positions its blocks, drag-to-create
+│   │   ├── EntryBlock.tsx      a drawn entry (memoised; move/resize drag)
 │   │   ├── EntryPopover.tsx    edit form + trash icon (shared: click, drag, edit)
 │   │   ├── NowLine.tsx         red current-time line
 │   │   ├── DayTaskStrip.tsx    the expandable due-tasks menu under each weekday
-│   │   └── useDragCreate.ts    pointer-event drag → time range
+│   │   ├── ExportButton.tsx    CSV range export from the header
+│   │   ├── geometry.ts         entry segments per day, per-day totals
+│   │   ├── useZoom.ts          hourHeight + ResizeObserver fit + ctrl-scroll + scroll hold
+│   │   ├── useWeekNavigation.ts  router.push for prev/next/today
+│   │   └── useKeyboardShortcuts.ts  generic keydown listener from a key map
 │   ├── timer/RunningBar.tsx    sticky bar: elapsed, project, stop button
 │   ├── backlog/…
 │   ├── dashboard/…
@@ -404,13 +412,24 @@ booting a database or a browser.
 background is 24 hour-rows drawn with a repeating gradient (a lighter half-hour rule inside
 each). Entries are absolutely positioned within their day column.
 
-**The hour height is measured, not fixed.** The scroll container reports its own height and
-the grid zooms so the nine-hour working day (09:00–18:00) fits without scrolling, clamped to
-34–96px per hour — below that a 15-minute block stops being clickable, above it the zoom
-buys nothing on a tall screen. A fixed 72px meant the working day fitted on the author's
-monitor and nowhere else. The scale is threaded down as `pxPerMinute`, so hit-testing,
-drag maths and the now-line all derive from the same number rather than from a constant that
-could drift out of step with what is drawn.
+The grid takes its height from a flex column, not from a measured pixel offset. The chain
+runs `min-h-screen` (the shell floor) down through `flex-1 min-h-0` on the shell's main, the
+`WeekView` root, and finally the `WeekGrid` scroll container. Each `flex-1 min-h-0` resolves
+to a definite height against the 100vh floor, so the grid fills the space the header, mobile
+strip, day-header row, zoom bar and hint line leave behind, and scrolls inside itself when
+its 24 hours exceed that. There is no `getBoundingClientRect` measurement of the grid's top,
+no `calc(100vh - Npx)` with magic chrome heights, and no fragility when a header row gains or
+loses a line. The chrome above and below the grid keeps its natural height.
+
+**The hour height is measured, not fixed.** The scroll container reports its own height to
+`useZoom` via a `ResizeObserver`, and the grid zooms so the nine-hour working day
+(09:00–18:00) fits without scrolling, clamped to 34–96px per hour — below that a 15-minute
+block stops being clickable, above it the zoom buys nothing on a tall screen. A fixed 72px
+meant the working day fitted on the author's monitor and nowhere else. The observer re-fits
+on viewport resize until the first manual zoom (slider or ctrl-scroll); after that a resize
+leaves the chosen height alone, and the fit button is the way back. The scale is threaded
+down as `pxPerMinute`, so hit-testing, drag maths and the now-line all derive from the same
+number rather than from a constant that could drift out of step with what is drawn.
 
 Blocks are **positioned by wall-clock minutes** (09:30 is always 570) while durations and
 totals use **real elapsed minutes**. Those differ only on DST days, and the split is
@@ -420,8 +439,8 @@ deliberate: it keeps the hour gutter aligned with every column 365 days a year, 
 On mount the container scrolls to 9am at the top of the viewport; the full 00:00–24:00 range
 stays reachable by scrolling, per your requirement. The scroll position persists across week
 navigation so paging weeks doesn't jump you back to 9am each time. A later zoom change —
-only a window resize can cause one — keeps whatever minute is at the top of the viewport
-instead of snapping back to 9am.
+slider, ctrl-scroll, or a re-fit after a window resize — keeps whatever minute is at the top
+of the viewport instead of snapping back to 9am.
 
 The header puts the week between the arrows that change it: `W31` with its date range
 underneath, both in the one calendar format the UI uses (`Jul-27 – Aug-2`).
@@ -519,6 +538,43 @@ param (`/?week=2026-W31`), so a reload or a shared link lands on the same week.
 
 **Multi-day entries** draw as separate blocks per day with a small arrow at the cut edge,
 and hovering one highlights the others.
+
+### File map
+
+`WeekView` is the only entry point (the route's `page.tsx` renders it inside `Suspense`).
+It owns the state that has no narrower home — `selectedEntryId`, `mobileDayIndex`, the query
+wiring, and the optimistic create/move/resize handlers that mint a browser id and drop the
+selection on rejection — and assembles the tree. Everything else is a child component or a
+hook it calls:
+
+```
+page.tsx
+  └─ WeekView                       state + handlers + tree
+       ├─ useZoom(scrollRef)        hourHeight, pxPerMinute, applyZoom, resetFit
+       ├─ useWeekNavigation(...)    goToWeek, goToToday (router.push on ?week=)
+       ├─ useKeyboardShortcuts(map) ←/→/t/Esc from a memoised key map
+       ├─ WeekViewHeader            nav arrows, week label, totals, export, start button
+       │    └─ ExportButton
+       ├─ MobileDayStrip            7-button day selector (mobile only)
+       ├─ DayHeaderRow              weekday, date, per-day total
+       │    └─ DayTaskStrip         expandable due-tasks menu
+       ├─ WeekGrid                  flex-1 scroll container (scrollRef lives here)
+       │    ├─ DayColumn            drag-to-create + block layout, per visible day
+       │    │    └─ EntryBlock      memoised; move/resize drag, opens the popover
+       │    │         └─ EntryPopover  edit form, dial, trash (shared by all create/edit paths)
+       │    └─ NowLine              red line on today's column
+       └─ ZoomBar                   fit button + slider + px/h label
+```
+
+`geometry.ts` is the pure layer `WeekView`, `DayHeaderRow`, `MobileDayStrip` and `WeekGrid`
+share: it turns entries into per-day `PositionedSegment`s and gives the per-day totals the
+headers display. It has no React import, which is what lets the layout maths stay testable.
+
+The three hooks are the state that was inline in `WeekView` before. `useZoom` is the only
+one that touches the DOM (the `ResizeObserver` and the non-passive `wheel` listener sit on
+the scroll container `WeekView` lends it via `scrollRef`). `useWeekNavigation` is router
+only. `useKeyboardShortcuts` is generic — it takes a memoised key-to-handler map so its
+effect deps are exhaustive and no `eslint-disable` is needed.
 
 ---
 

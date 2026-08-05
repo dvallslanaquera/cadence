@@ -1,28 +1,15 @@
 /**
- * CSV export → Cadence entries. The inverse of `csv.ts`.
- *
- * The source format is a superset of ours in one direction and a subset in the
- * other. Two mismatches have to be resolved here rather than at the database,
- * because the database answers them with a constraint violation and no context:
- *
- *   - The source permits overlapping entries; we forbid them (`no_overlapping_entries`).
- *   - The source keeps seconds; we round to the minute and enforce a one-minute floor.
- *
- * Everything in this module is pure so the resolution can be dry-run and
- * reported before anything is written. See ARCHITECTURE.md §4 and §11.
+ * CSV -> Cadence entries; inverse of csv.ts. Two mismatches are resolved here,
+ * not at the DB (which would answer with a bare constraint violation):
+ * source allows overlapping entries, we forbid them; source keeps seconds, we
+ * round to the minute with a one-minute floor. Pure so resolution can be
+ * dry-run before writing (ARCHITECTURE.md §4, §11).
  */
 import { TZDate } from "@date-fns/tz";
 import { MIN_ENTRY_MINUTES } from "./overlap";
 import { minutesBetween, roundToMinute } from "./time";
 
-// ---------------------------------------------------------------------------
-// CSV parsing (RFC 4180)
-// ---------------------------------------------------------------------------
-
-/**
- * Field-level parser. Any description containing a comma is quoted, and
- * descriptions containing newlines do occur, so this cannot be a line split.
- */
+/** Field-level parser; descriptions can contain commas or newlines, so this can't be a line split. */
 export function parseCsv(text: string): string[][] {
   const rows: string[][] = [];
   let row: string[] = [];
@@ -75,10 +62,7 @@ export function parseCsv(text: string): string[][] {
   return rows.filter((cells) => cells.some((cell) => cell.trim() !== ""));
 }
 
-/**
- * Header-keyed records. Column *order* differs between sources and our own
- * export is a strict subset, so nothing may be positional.
- */
+/** Header-keyed records; column order varies and our export is a strict subset, so nothing is positional. */
 export function toRecords(rows: string[][]): Record<string, string>[] {
   if (rows.length === 0) return [];
   const header = rows[0].map((name) => name.trim().toLowerCase());
@@ -91,22 +75,13 @@ export function toRecords(rows: string[][]): Record<string, string>[] {
   });
 }
 
-// ---------------------------------------------------------------------------
-// Dates
-// ---------------------------------------------------------------------------
-
 const ISO_DATE = /^(\d{4})-(\d{2})-(\d{2})$/;
 const SLASH_DATE = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/;
 const CLOCK = /^(\d{1,2}):(\d{2})(?::(\d{2}))?$/;
 
 export type DateOrder = "iso" | "dmy" | "mdy";
 
-/**
- * A source file may write `YYYY-MM-DD` or a locale slash format, and
- * `03/04/2026` is a different day depending on which. Guessing silently would
- * misfile up to eleven months of history, so an ambiguous file is an error the
- * caller has to resolve with an explicit order.
- */
+/** Source may write YYYY-MM-DD or a locale slash format, and 03/04/2026 is a different day depending on which. Guessing would misfile up to 11 months of history, so an ambiguous file is an error the caller resolves with an explicit order. */
 export function detectDateOrder(values: string[]): DateOrder | "ambiguous" {
   let sawSlash = false;
   for (const value of values) {
@@ -122,11 +97,7 @@ export function detectDateOrder(values: string[]): DateOrder | "ambiguous" {
   return sawSlash ? "ambiguous" : "iso";
 }
 
-/**
- * Wall-clock date + time in `tz` → the UTC instant. The CSV carries no
- * offset, so the zone is supplied by the caller and is the single biggest way
- * an import can land hours off.
- */
+/** Wall-clock date + time in tz -> UTC instant. The CSV has no offset; the caller-supplied zone is the biggest way an import lands hours off. */
 export function parseWallClock(
   date: string,
   time: string,
@@ -169,14 +140,9 @@ export function parseWallClock(
   );
   if (Number.isNaN(instant.getTime())) return null;
 
-  // A wall-clock time inside a spring-forward gap does not exist; TZDate maps it
-  // forward rather than failing, which is the behaviour we want but worth naming.
+  // Spring-forward gap times don't exist; TZDate maps them forward instead of failing, which we want.
   return instant;
 }
-
-// ---------------------------------------------------------------------------
-// Mapping
-// ---------------------------------------------------------------------------
 
 export interface ImportCandidate {
   /** 1-based row number in the source file, for error reports. */
@@ -246,9 +212,7 @@ export function mapRecords(
       return;
     }
 
-    // Rounding is monotonic, so it cannot turn a clean file into a crossing
-    // overlap — but anything under ~30 seconds collapses to zero length, which
-    // the `end_after_start` check would reject.
+    // Rounding is monotonic, so it can't make a clean file cross; but under ~30s collapses to zero length, which end_after_start would reject.
     if (minutesBetween(startedAt, endedAt) < MIN_ENTRY_MINUTES) {
       rejected.push({ line, reason: "sub-minute", detail: label });
       return;
@@ -271,10 +235,6 @@ export function mapRecords(
   return { candidates, rejected, missingColumns: [] };
 }
 
-// ---------------------------------------------------------------------------
-// Overlap resolution
-// ---------------------------------------------------------------------------
-
 export type ConflictPolicy = "skip" | "truncate";
 
 export interface Conflict {
@@ -290,14 +250,7 @@ export interface ResolveResult {
   conflicts: Conflict[];
 }
 
-/**
- * Produces a strictly non-overlapping, ascending list.
- *
- * `skip` drops the later row. `truncate` shortens the *earlier* row to end where
- * the later one begins, which is the right shape for the common case: a timer
- * left running overnight across days that were also logged deliberately. An
- * earlier row truncated below the one-minute floor is dropped instead.
- */
+/** Strictly non-overlapping, ascending list. `skip` drops the later row. `truncate` shortens the earlier row to where the later one begins (right shape for a timer left running overnight across deliberately-logged days); if that leaves a sub-minute stub, the earlier row is dropped instead. */
 export function resolveOverlaps(
   candidates: ImportCandidate[],
   policy: ConflictPolicy,

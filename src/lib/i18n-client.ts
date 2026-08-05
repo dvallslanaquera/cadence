@@ -10,13 +10,7 @@ import {
   localeFor,
 } from "@/lib/i18n";
 
-/**
- * The translation hook. Reads the live language from settings so components
- * re-render when it changes, and returns a `t` (and `plural`) bound to that
- * language. Keeps the module-level `currentLang` in step too, so toast handlers
- * and other non-hook code translate in the right language without their own
- * subscription.
- */
+// Translation hook. Reads the live language from settings so components re-render when it changes, and returns a `t`/`plural` bound to that language. Also keeps the module-level currentLang in step, so toast handlers and other non-hook code translate in the right language without their own subscription.
 export function useT() {
   const { data: settings } = useSettings();
   const lang: Lang = (settings?.language as Lang) ?? "en";
@@ -39,19 +33,14 @@ export function useT() {
   return { t, plural, lang, locale };
 }
 
-/** The BCP47 locale for the live language, for date formatters. */
+/** BCP47 locale for the live language, for date formatters. */
 export function useLocale(): string {
   const { data: settings } = useSettings();
   const lang: Lang = (settings?.language as Lang) ?? "en";
   return localeFor(lang);
 }
 
-/**
- * Keeps the module-level `currentLang` in sync with the stored setting, so
- * toast handlers and other non-hook code translate in the right language.
- * `useT` already does this for components that call it; this covers the ones
- * that don't (the mutation hooks in queries.ts). Sibling of ThemeSync.
- */
+// Keeps module-level currentLang in sync with the stored setting, so non-hook code (the mutation hooks in queries.ts) translates in the right language. useT already does this for components that call it; this covers the ones that don't. Sibling of ThemeSync.
 export function LanguageSync() {
   const { data: settings } = useSettings();
   const lang: Lang = (settings?.language as Lang) ?? "en";

@@ -14,11 +14,7 @@ export interface ConfirmDialogProps {
   onCancel: () => void;
 }
 
-/**
- * A focused yes/no prompt. Escape and clicking the backdrop both cancel, since
- * either is a "I changed my mind" gesture and the action is destructive enough
- * (completing a task, deleting something) that backing out is the safe default.
- */
+// Yes/no prompt where Escape and backdrop both cancel, since the action (complete a task, delete something) is destructive enough that backing out is the safe default.
 export function ConfirmDialog({
   open,
   title,

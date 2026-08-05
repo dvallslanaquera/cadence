@@ -23,12 +23,10 @@ describe("rankSuggestions", () => {
     expect(rankSuggestions(HISTORY, "i", 10)).toEqual([
       "Interview preparation",
       "Intense study session",
-      // Both of these have an "i" buried in an earlier word, "Client" and
-      // "Refactor", and are here on the strength of the later one that starts
-      // "(invoicing)" and "importer".
+      // "i" buried in "Client"/"Refactor"; ranked on the later "(invoicing)"/"importer".
       "Client call (invoicing)",
       "Refactor the importer",
-      // Only "review" left, and its "i" is mid-word.
+      // "review" left; its "i" is mid-word.
       "Weekly review",
     ]);
   });
@@ -42,8 +40,7 @@ describe("rankSuggestions", () => {
   });
 
   it("keeps the most-used order within one band", () => {
-    // Both start with the query, so the order the history arrived in decides,
-    // not the alphabet, which would have put "Sprint planning" first.
+    // Both start with the query, so history order decides, not alphabet (which would put "Sprint planning" first).
     const history = ["Standup", "Alpha review", "Sprint planning"];
     expect(rankSuggestions(history, "s", 10)).toEqual(["Standup", "Sprint planning"]);
   });

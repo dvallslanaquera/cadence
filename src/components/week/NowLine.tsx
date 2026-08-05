@@ -2,11 +2,7 @@
 
 import { wallClockMinutes } from "@/domain/time";
 
-/**
- * The red current-time line across today's column. Positioned by wall-clock
- * minutes in the home zone, so it tracks the zone the entries are drawn in
- * rather than the zone the browser happens to be in.
- */
+// Red current-time line. Positioned by home-zone wall-clock minutes so it tracks the entries' zone, not the browser's.
 export function NowLine({
   now,
   tz,

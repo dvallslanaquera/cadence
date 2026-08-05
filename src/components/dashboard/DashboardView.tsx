@@ -40,13 +40,12 @@ export function DashboardView() {
 
   const effectiveWeeks = weekCount ?? settings?.weeklyChartWeeks ?? 20;
 
-  // Current week, for the per-day panel.
   const { weekStart, weekEnd } = useMemo(() => {
     const start = startOfLocalWeek(new Date(), tz);
     return { weekStart: start, weekEnd: shiftWeeks(start, tz, 1) };
   }, [tz]);
 
-  // A wider window for the donut and the summary strip.
+  // Wider window for the donut and summary strip.
   const { rangeStart, rangeEnd } = useMemo(() => {
     const thisWeek = startOfLocalWeek(new Date(), tz);
     return {

@@ -3,11 +3,7 @@
 import { useMediaQuery } from "@/lib/hooks";
 import { seriesColor } from "@/lib/constants";
 
-/**
- * Chart chrome. Recharts needs concrete values rather than CSS variables, so
- * the tokens are resolved per mode here — dark is a selected set of steps, not
- * an automatic flip of the light one.
- */
+// Recharts needs concrete values, not CSS vars; dark steps are hand-picked, not an auto flip of light.
 export interface ChartTheme {
   isDark: boolean;
   surface: string;

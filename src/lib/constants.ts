@@ -1,94 +1,43 @@
-/**
- * Grid geometry. The hour height is not fixed: the week grid measures itself and
- * zooms so VISIBLE_HOURS fits without scrolling, which is what makes the working
- * day readable on a laptop and a 4K monitor alike. These are the fallback used
- * before the first measurement and the bounds the measured value is clamped to.
- */
+// Fallback hour height before the grid measures the viewport.
 export const HOUR_HEIGHT_PX = 50;
 export const PX_PER_MINUTE = HOUR_HEIGHT_PX / 60;
 
-/** The working day the grid opens on: 09:00 at the top, the rest scrolls. */
 export const DEFAULT_SCROLL_HOUR = 9;
-/**
- * How many hours the grid fits into the viewport. Raised from 9 to 13 to bring
- * the hour lines down by about a third. The grid was too tall, so the working
- * day now sits in a denser scale with more of the evening visible before the
- * scroll begins.
- */
-export const VISIBLE_HOURS = 13;
 
-/**
- * Below ~34px an hour a 15-minute block is under 9px and stops being clickable;
- * above 96px the zoom stops buying anything on a tall screen.
- */
+/** Hours the grid fits before scrolling. 9 opens on 09:00-18:00; the rest is a scroll or a zoom-out away. */
+export const VISIBLE_HOURS = 9;
+
+// Below 34px/h a 15-min block is under 9px and unclickable; above 96px/h zoom buys nothing.
 export const MIN_HOUR_HEIGHT_PX = 34;
 export const MAX_HOUR_HEIGHT_PX = 96;
 
-/** The hour height that shows exactly VISIBLE_HOURS in `viewportPx`. */
 export function fitHourHeight(viewportPx: number): number {
   const exact = viewportPx / VISIBLE_HOURS;
   return Math.min(MAX_HOUR_HEIGHT_PX, Math.max(MIN_HOUR_HEIGHT_PX, exact));
 }
 
-/** Drags snap to 5 minutes; hold Alt for 1-minute precision. */
+/** Drags snap to 5 min; hold Alt for 1-min precision. */
 export const SNAP_MINUTES = 5;
 export const FINE_SNAP_MINUTES = 1;
 
-/**
- * A double-click to create lands on a 15-minute mark. Coarser than a drag on
- * purpose: a click picks a slot, not a minute, and 0:00 / 0:15 / 0:30 / 0:45 is
- * the granularity you actually mean when you point at "mid-morning". Drags keep
- * their finer snap for an exact range.
- */
+// Click-to-create snaps to 15 min: a click picks a slot, not a minute. Drags keep the finer snap.
 export const CREATE_SNAP_MINUTES = 15;
 
-/**
- * How long a click-created block is when the click cannot mean "I am doing this
- * now", which is an earlier day or a minute ahead of the now-line. On today a
- * click starts a live timer instead and there is no length to assume. See
- * `intentFromClick`.
- */
+// Length for a click that can't mean "now": an earlier day, or ahead of the now-line. On today a click starts a live timer instead. See intentFromClick.
 export const DEFAULT_BLOCK_MINUTES = 30;
 
-/**
- * The project picker opens on the projects you use most, by entry count over a
- * trailing window. A window rather than all-time so the shortlist follows what
- * you are working on now instead of what you worked on last year.
- */
+// Picker opens on most-used projects by entry count over a trailing window, so the shortlist follows current work, not all-time.
 export const FREQUENT_PROJECT_COUNT = 5;
 export const FREQUENT_PROJECT_WINDOW_DAYS = 30;
 
-/**
- * The description autocomplete. The history is fetched whole and matched in the
- * browser, so the limit is what keeps that payload small on a tracker with years
- * of entries in it; six visible rows is about as far down as anyone reads before
- * finishing the word themselves.
- */
+// History is fetched whole and matched in the browser; the limit keeps the payload small on a tracker with years of entries.
 export const DESCRIPTION_HISTORY_LIMIT = 300;
 export const DESCRIPTION_SUGGESTION_COUNT = 6;
 
-/** The running timer refetches on focus and on this interval. */
+/** Poll interval for the running timer; also refetches on focus. */
 export const RUNNING_POLL_MS = 30_000;
 
-/**
- * Project colours: the picker offers a native colour input plus these twenty
- * presets. The first eight are a fixed, validated categorical set in a fixed
- * order — the slots auto-assignment cycles through — and the remaining twelve
- * fill hue gaps for picking by hand.
- *
- * The first eight clear the lightness band, chroma floor, CVD separation
- * (protan and deuteran) and the normal-vision floor against this app's own
- * surfaces — verified with the palette validator, not by eye:
- *
- *   light on #ffffff : worst adjacent CVD ΔE 9.1, normal-vision ΔE 19.6
- *   dark  on #111827 : worst adjacent CVD ΔE 8.4, normal-vision ΔE 19.3
- *
- * The extra twelve and any colour chosen through the native input have no
- * tuned dark step, so `darkVariant` returns them unchanged — the same way a
- * custom hex is drawn. A stored project colour is always the LIGHT hex; never
- * render the first eight's light hex on dark, those fail the dark lightness
- * band.
- */
+// First eight are a validated categorical set the auto-assignment cycles through; the rest fill hue gaps for manual picking. First eight pass CVD and normal-vision floors on this app's surfaces (worst adjacent CVD ΔE 9.1 light / 8.4 dark). The extra twelve and any native-input colour have no tuned dark step, so darkVariant returns them unchanged. A stored colour is always the LIGHT hex; never render the first eight's light hex on dark.
 export const PROJECT_COLORS = [
   "#2a78d6", // blue
   "#eb6834", // orange
@@ -130,7 +79,6 @@ export function darkVariant(hex: string): string {
   return DARK_STEPS[hex.toLowerCase()] ?? hex;
 }
 
-/** Resolve a stored project colour for the surface it will be drawn on. */
 export function seriesColor(hex: string, isDark: boolean): string {
   return isDark ? darkVariant(hex) : hex;
 }
@@ -140,15 +88,7 @@ export function nextProjectColor(usedColors: string[]): string {
   return unused ?? PROJECT_COLORS[usedColors.length % PROJECT_COLORS.length];
 }
 
-/**
- * App themes. The id is stored on the Settings row and written to
- * `data-theme` on <html>; the CSS in globals.css turns it into a palette.
- *
- * `system` sets no attribute, so the OS preference drives the light/dark
- * fallback in globals.css. The rest force a named palette. `swatches` are the
- * three colors the settings picker previews with (background, surface,
- * accent), kept in sync with the CSS by hand.
- */
+// id is stored on Settings and written to data-theme on <html>; globals.css turns it into a palette. `system` sets no attribute so the OS preference drives the light/dark fallback. `swatches` preview the three CSS colors (bg, surface, accent), kept in sync by hand.
 export const THEME_IDS = [
   "system",
   "daylight",

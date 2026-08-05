@@ -1,12 +1,7 @@
 import { db } from "@/server/db";
 import { toCsvLine, CSV_HEADER, entryToCsvRow } from "@/domain/csv";
 
-/**
- * Streamed rather than buffered, so a multi-year export doesn't build the whole
- * file in a serverless function's memory. See ARCHITECTURE.md §11.
- *
- * Only closed entries are exported — a running timer has no end time to write.
- */
+/** Streamed so a multi-year export doesn't blow up serverless memory; only closed entries have an end time. See ARCHITECTURE.md §11. */
 export function streamEntriesCsv(from: Date, to: Date, tz: string): ReadableStream<Uint8Array> {
   const encoder = new TextEncoder();
   const pageSize = 500;

@@ -5,15 +5,9 @@ export function cn(...inputs: ClassValue[]): string {
   return twMerge(clsx(inputs));
 }
 
-/**
- * An id for a row the browser is about to create, generated here rather than by
- * the database. The grid opens the editor on a new entry in the same frame as
- * the click, so it needs an id it can point at before the POST has landed, and
- * one that still names the same row afterwards.
- */
+// Client-generated id so the grid can open the editor on a new entry before the POST lands, and keep naming the same row after.
 export function newEntryId(): string {
-  // randomUUID only exists in a secure context, which a phone hitting the dev
-  // server over http on the LAN is not.
+  // randomUUID needs a secure context; a phone hitting the dev server over http on the LAN is not.
   if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
     return crypto.randomUUID();
   }

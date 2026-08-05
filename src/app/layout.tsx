@@ -6,11 +6,7 @@ import { ServiceWorker } from "@/components/shell/ServiceWorker";
 import { getLanguage, getTheme } from "@/server/settings";
 import { isLang } from "@/lib/i18n";
 
-// The theme lives in the Settings row and changes per user, so the layout must
-// render per request. Without this, Next prerenders the pages at build time and
-// bakes whatever theme was current then into the static HTML; the first frame
-// on every later visit would be stale (the build-time palette, not the user's),
-// with the right one only flashing in once the client settings query resolves.
+// Theme is per-user in the Settings row; force-dynamic avoids Next baking the build-time palette into static HTML.
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
@@ -33,14 +29,11 @@ export const viewport: Viewport = {
 };
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
-  // Read before paint so the first frame is already the right palette; System
-  // sets no attribute and lets the OS media query decide. A missing row or an
-  // unreachable database falls back to System rather than failing the page.
+  // Read before paint so the first frame is already the right palette; System lets the OS media query decide, and a missing row or unreachable DB falls back rather than failing the page.
   let theme = "system";
   try {
     theme = await getTheme();
   } catch {
-    // leave System
   }
 
   let language = "en";
@@ -48,7 +41,6 @@ export default async function RootLayout({ children }: { children: React.ReactNo
     const lang = await getLanguage();
     if (isLang(lang)) language = lang;
   } catch {
-    // leave English
   }
 
   return (

@@ -14,7 +14,7 @@ export function Providers({ children }: { children: ReactNode }) {
             staleTime: 10_000,
             refetchOnWindowFocus: true,
             retry: (failureCount, error) => {
-              // Never retry an auth failure into a redirect loop.
+              // ApiClientError means the server rejected the call (e.g. 401); retrying would loop.
               if (error instanceof Error && error.name === "ApiClientError") return false;
               return failureCount < 2;
             },

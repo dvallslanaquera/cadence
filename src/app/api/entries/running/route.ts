@@ -5,7 +5,7 @@ import { isHeartbeatStale } from "@/domain/alerts";
 
 export const dynamic = "force-dynamic";
 
-/** The 30-second poll target. Also carries the scheduler heartbeat warning. */
+/** 30-second poll target; also carries the scheduler heartbeat warning. */
 export const GET = route(async () => {
   const [entry, settings] = await Promise.all([getRunningEntry(), getSettings()]);
   return {

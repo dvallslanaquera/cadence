@@ -22,15 +22,7 @@ import { ProjectPicker } from "@/components/ui/ProjectPicker";
 import { useT } from "@/lib/i18n-client";
 import type { Entry } from "@/lib/types";
 
-/**
- * The timer strip that sits above the grid on every page.
- *
- * Every field on it is the real control, not a readout with an edit button
- * behind it: the title, the project and the start time are all live inputs, so
- * fixing a mistyped description costs one click rather than a trip to the entry
- * popover. Turns amber past the alert threshold, so a forgotten timer is obvious
- * in an open tab as well as by email.
- */
+// Timer strip with live inputs (title, project, start time) so fixes cost one click. Turns amber past the alert threshold.
 export function RunningBar() {
   const { data } = useRunning();
   const { data: settings } = useSettings();
@@ -43,7 +35,6 @@ export function RunningBar() {
   const entry = data?.entry ?? null;
   const tz = settings?.timezone ?? "UTC";
 
-  /** Start an empty entry and put the cursor straight in its title. */
   function startEmpty() {
     start.mutate(
       {},
@@ -94,7 +85,6 @@ export function RunningBar() {
 
       {data?.schedulerStale ? <StaleSchedulerBadge /> : null}
 
-      {/* One button in two states: square stops, triangle starts. */}
       <button
         type="button"
         aria-label={entry ? t("timer.stop") : t("timer.start")}
@@ -113,8 +103,7 @@ export function RunningBar() {
         {entry ? (
           <Square className="h-6 w-6 fill-current" />
         ) : (
-          // Nudged right so the triangle looks centred, which it isn't when its
-          // bounding box is.
+          // Nudged right so the triangle looks centred, which it isn't when its bounding box is.
           <Play className="ml-0.5 h-7 w-7 fill-current" />
         )}
       </button>
@@ -122,11 +111,7 @@ export function RunningBar() {
   );
 }
 
-/**
- * The three editable fields. Each holds your keystrokes from the moment you
- * focus it until you commit, because `useRunning` polls every 30 seconds and
- * would otherwise overwrite whatever you were halfway through typing.
- */
+// Each field holds keystrokes until commit; useRunning polls every 30s and would overwrite mid-typing.
 function RunningFields({
   entry,
   tz,
@@ -157,8 +142,7 @@ function RunningFields({
     if (next === null || next === serverStartTime) return;
     const minutes = parseClockToMinutes(next);
     if (minutes === null) return;
-    // Keep the entry on the day it started; only the time of day is editable
-    // here. Moving it to another day is a drag on the grid.
+    // Keep the entry on its start day; only time of day is editable here, moving days is a grid drag.
     update.mutate({
       id: entry.id,
       startedAt: instantFromLocalParts(
@@ -244,11 +228,7 @@ function PulseDot({ active, overdue }: { active: boolean; overdue: boolean }) {
   );
 }
 
-/**
- * GitHub disables scheduled workflows after 60 days of repo inactivity, which
- * would silently kill the runaway-timer email. The heartbeat surfaces that here
- * rather than the day you needed it. See ARCHITECTURE.md §12.
- */
+// GitHub disables scheduled workflows after 60 days of repo inactivity, which would silently kill the runaway-timer email. See ARCHITECTURE.md §12.
 function StaleSchedulerBadge() {
   const { t } = useT();
   return (

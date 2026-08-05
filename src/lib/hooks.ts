@@ -2,10 +2,7 @@
 
 import { useEffect, useState } from "react";
 
-/**
- * A ticking clock. Everything that displays elapsed time shares one of these
- * rather than each component owning an interval.
- */
+/** Shared ticking clock so elapsed-time displays don't each own an interval. */
 export function useNow(intervalMs = 1000): Date {
   const [now, setNow] = useState(() => new Date());
 
@@ -18,8 +15,7 @@ export function useNow(intervalMs = 1000): Date {
 }
 
 export function useMediaQuery(query: string): boolean {
-  // Defaults to false so the server render matches the first client render;
-  // the effect corrects it before paint.
+  // False on first render so SSR matches the first client render; the effect corrects before paint.
   const [matches, setMatches] = useState(false);
 
   useEffect(() => {
@@ -33,7 +29,7 @@ export function useMediaQuery(query: string): boolean {
   return matches;
 }
 
-/** True once mounted — for anything that must not render during SSR. */
+/** True once mounted; for anything that must not render during SSR. */
 export function useMounted(): boolean {
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
@@ -48,7 +44,7 @@ export function useLocalStorage<T>(key: string, initial: T) {
       const stored = window.localStorage.getItem(key);
       if (stored !== null) setValue(JSON.parse(stored) as T);
     } catch {
-      // A corrupt or blocked store just means we keep the default.
+      // Corrupt or blocked store: keep the default.
     }
   }, [key]);
 
@@ -56,7 +52,7 @@ export function useLocalStorage<T>(key: string, initial: T) {
     try {
       window.localStorage.setItem(key, JSON.stringify(value));
     } catch {
-      // Private mode / quota — not worth surfacing.
+      // Private mode / quota: not worth surfacing.
     }
   }, [key, value]);
 

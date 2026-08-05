@@ -11,15 +11,7 @@ import { ColorSwatchPicker } from "./ColorSwatchPicker";
 import { useT } from "@/lib/i18n-client";
 import type { Project } from "@/lib/types";
 
-/**
- * Project selection for the entry editor.
- *
- * Opens on the handful of projects actually in use rather than the full
- * alphabetical list, because picking a project is the one field you touch on
- * every entry. The complete list stays below the shortlist so nothing becomes
- * unreachable once you pass five projects, and a new project can be created
- * without leaving the entry you are editing.
- */
+// Project picker for the entry editor. Opens on the few projects in use rather than the full alphabetical list; full list stays below, and a new project can be created without leaving the entry.
 export function ProjectPicker({
   value,
   onChange,
@@ -31,16 +23,9 @@ export function ProjectPicker({
   onChange: (projectId: string) => void;
   /** Shown before the projects list has loaded. */
   fallback?: { name: string; color: string };
-  /**
-   * Chip rather than form field: no border until hovered, sized to its label.
-   * For the running bar, where it sits inline between two borderless inputs.
-   */
+  /** Chip rather than form field for the running bar, where it sits inline between two borderless inputs. */
   compact?: boolean;
-  /**
-   * Supply the whole trigger instead of the default chip — for rows that are
-   * themselves the control, like a due task whose name opens its project list.
-   * Must render exactly one focusable element; it receives the current project.
-   */
+  /** Supply the whole trigger for rows that are themselves the control (e.g. a due task). Must render one focusable element; receives the current project. */
   trigger?: (project: { name: string; color: string }) => ReactNode;
 }) {
   const { data: projects } = useProjects();

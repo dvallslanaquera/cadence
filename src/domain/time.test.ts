@@ -82,8 +82,7 @@ describe("date key arithmetic", () => {
   });
 
   it("shifts across a DST boundary without losing a day", () => {
-    // Both transitions in the home zone. A key names a calendar square, so a
-    // 23- or 25-hour day must still be exactly one step.
+    // Both transitions in the home zone; a key names a calendar square, so a 23/25-hour day is still one step.
     expect(shiftDateKey("2026-03-29", 1)).toBe("2026-03-30");
     expect(shiftDateKey("2026-10-25", 1)).toBe("2026-10-26");
   });

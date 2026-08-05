@@ -6,20 +6,7 @@ import { formatDurationHuman, formatMinutesAs12Hour } from "@/domain/time";
 import { cn, withAlpha } from "@/lib/utils";
 import { useT } from "@/lib/i18n-client";
 
-/**
- * A 12-hour dial for editing a time range by dragging, the way a wall clock
- * reads. One revolution is half a day, so a handle position alone cannot say
- * whether it means 09:00 or 21:00. The AM/PM pair in the middle of the face says
- * which, and it applies to whichever handle you last touched.
- *
- * Dragging moves a handle inside its own half of the day and never rolls over
- * into the other one. Crossing noon or midnight is the buttons' job, so a drag
- * can't silently move an entry twelve hours. Arrow keys do wrap, because there
- * the step is small and deliberate.
- *
- * The dial only ever expresses times of day. Which calendar day the end lands on
- * is the caller's problem: an end at or before the start wraps past midnight.
- */
+// 12-hour dial for editing a range by dragging. A handle position alone can't say AM or PM, so the centre pair picks the half-day for whichever handle you last touched. Drag stays within a half-day (crossing noon is the buttons' job); arrow keys wrap. The dial only expresses times of day; an end at or before the start wraps past midnight.
 
 const MINUTES_PER_DAY = 1440;
 const MINUTES_PER_HALF_DAY = 720;
@@ -33,7 +20,7 @@ const TICK_OUTER = 50;
 /** Hour numbers sit outside the ring, which leaves the middle for the readout. */
 const LABEL_RADIUS = 74;
 
-/** 12:00 at the top, clockwise — the direction a clock and the grid both run. */
+/** 12:00 at the top, clockwise, the direction a clock and the grid both run. */
 function polar(minutes: number, radius: number): { x: number; y: number } {
   const radians = ((minutes / MINUTES_PER_HALF_DAY) * 360 - 90) * (Math.PI / 180);
   return {
@@ -42,12 +29,10 @@ function polar(minutes: number, radius: number): { x: number; y: number } {
   };
 }
 
-/** Forward span from `from` to `to` around the 12-hour face. */
 function faceSpan(from: number, to: number): number {
   return (((to - from) % MINUTES_PER_HALF_DAY) + MINUTES_PER_HALF_DAY) % MINUTES_PER_HALF_DAY;
 }
 
-/** Forward span across the whole day, wrapping past midnight. */
 function daySpan(from: number, to: number): number {
   return (((to - from) % MINUTES_PER_DAY) + MINUTES_PER_DAY) % MINUTES_PER_DAY;
 }
@@ -93,18 +78,16 @@ export function ClockRangePicker({
   const svgRef = useRef<SVGSVGElement>(null);
   const dragging = useRef<ClockHandle | null>(null);
   const [active, setActive] = useState<ClockHandle | null>(null);
-  /** Which handle the AM/PM buttons act on. */
   const [editing, setEditing] = useState<ClockHandle>("start");
   const { t } = useT();
 
   const running = endMinutes === null;
   const span = spanMinutes ?? daySpan(startMinutes, endMinutes ?? startMinutes);
 
-  // A running entry has no end handle, so there is nothing else to edit.
   const editingHandle: ClockHandle = running ? "start" : editing;
   const editingMinutes = editingHandle === "start" ? startMinutes : (endMinutes as number);
 
-  /** Pointer position -> minutes around the 12-hour face, snapped. Alt is finer. */
+  // Alt for finer snapping.
   function faceMinutesAt(event: ReactPointerEvent<SVGElement>): number {
     const svg = svgRef.current;
     if (!svg) return 0;
@@ -132,8 +115,7 @@ export function ClockRangePicker({
     if (!handle) return;
     const current = handle === "start" ? startMinutes : endMinutes;
     if (current === null) return;
-    // The handle keeps the half of the day it is already in; only the buttons
-    // move it across noon.
+    // The handle keeps the half of the day it's already in; only the buttons move it across noon.
     const next = meridiemOf(current) + faceMinutesAt(event);
     if (next !== current) onChange(handle, next);
   }
@@ -160,7 +142,7 @@ export function ClockRangePicker({
     onChange(handle, wrapDay(current + delta));
   }
 
-  /** Move the handle the buttons are pointed at into the chosen half of the day. */
+  /** Moves the editing handle into the chosen half of the day. */
   function setMeridiem(target: 0 | typeof MINUTES_PER_HALF_DAY) {
     const current = editingMinutes;
     if (meridiemOf(current) === target) return;
@@ -169,8 +151,7 @@ export function ClockRangePicker({
 
   const start = polar(startMinutes, TRACK_RADIUS);
   const end = polar(endMinutes ?? startMinutes, TRACK_RADIUS);
-  // Anything from twelve hours up fills the face, which is all a 12-hour ring
-  // can honestly say about it.
+  // Anything from twelve hours up fills the face, which is all a 12-hour ring can honestly say about it.
   const fullFace = !running && span >= MINUTES_PER_HALF_DAY;
 
   return (
@@ -183,7 +164,6 @@ export function ClockRangePicker({
           role="group"
           aria-label={t("dial.aria")}
         >
-          {/* Track */}
           <circle
             cx={CENTER}
             cy={CENTER}
@@ -193,7 +173,6 @@ export function ClockRangePicker({
             strokeWidth={8}
           />
 
-          {/* Hour ticks; the quarter marks are longer and carry the labels. */}
           {Array.from({ length: 12 }, (_, hour) => {
             const major = hour % 3 === 0;
             const outer = polar(hour * 60, TICK_OUTER);
@@ -227,7 +206,6 @@ export function ClockRangePicker({
             );
           })}
 
-          {/* The selected range. A running entry has no end, so it gets a stub. */}
           {fullFace ? (
             <circle
               cx={CENTER}
@@ -248,8 +226,7 @@ export function ClockRangePicker({
             />
           )}
 
-          {/* Handles. Start is hollow, end is solid — the same read as the grid's
-              top and bottom resize edges. */}
+          {/* Start is hollow, end is solid, matching the grid's top and bottom resize edges. */}
           <circle
             cx={start.x}
             cy={start.y}
@@ -302,9 +279,7 @@ export function ClockRangePicker({
           )}
         </svg>
 
-        {/* Centre readout, as HTML rather than SVG text so the AM/PM pair can be
-            real buttons. Only the buttons take the pointer; the rest of the
-            middle stays out of the way of a handle dragged near it. */}
+        {/* Centre readout as HTML so the AM/PM pair can be real buttons. Only the buttons take the pointer; the rest stays out of the way of a handle dragged near it. */}
         <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-1">
           <span className="tabular text-[15px] font-semibold leading-none text-fg">
             {running ? t("entry.running") : formatDurationHuman(span)}
