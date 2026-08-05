@@ -35,7 +35,6 @@ export function ProjectDonut({ projects }: { projects: ProjectStat[] }) {
 
     const all = [...head, ...folded];
     return { slices: all, total: all.reduce((sum, item) => sum + item.minutes, 0) };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [projects, t]);
 
   if (total === 0) {

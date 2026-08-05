@@ -17,10 +17,10 @@ import { Spinner } from "@/components/ui/primitives";
 import { useT } from "@/lib/i18n-client";
 import { HoursPerDayChart } from "./HoursPerDayChart";
 import { HoursPerWeekChart } from "./HoursPerWeekChart";
+import { PanelSkeleton } from "./Panel";
 import { ProjectDonut } from "./ProjectDonut";
+import { RangePresets, type RangePreset } from "./RangePresets";
 import { SummaryStrip } from "./SummaryStrip";
-
-type RangePreset = "week" | "month" | "quarter" | "year";
 
 const RANGE_WEEKS: Record<RangePreset, number> = {
   week: 1,
@@ -74,22 +74,7 @@ export function DashboardView() {
     <div className="space-y-4 py-4">
       <div className="flex flex-wrap items-center gap-2">
         <h1 className="text-lg font-semibold">{t("dash.heading")}</h1>
-        <div className="ml-auto flex items-center gap-1 rounded-lg border border-border bg-surface p-0.5">
-          {(Object.keys(RANGE_WEEKS) as RangePreset[]).map((preset) => (
-            <button
-              key={preset}
-              type="button"
-              onClick={() => setRange(preset)}
-              className={
-                range === preset
-                  ? "rounded-md bg-accent-soft px-2.5 py-1 text-xs font-medium text-accent"
-                  : "rounded-md px-2.5 py-1 text-xs text-fg-muted hover:text-fg"
-              }
-            >
-              {t(`dash.range.${preset}`)}
-            </button>
-          ))}
-        </div>
+        <RangePresets value={range} onChange={setRange} />
       </div>
 
       <SummaryStrip
@@ -129,14 +114,6 @@ export function DashboardView() {
       )}
 
       <p className="text-xs text-fg-subtle">{t("dash.footer")}</p>
-    </div>
-  );
-}
-
-function PanelSkeleton() {
-  return (
-    <div className="flex h-72 items-center justify-center rounded-xl border border-border bg-surface">
-      <Spinner />
     </div>
   );
 }

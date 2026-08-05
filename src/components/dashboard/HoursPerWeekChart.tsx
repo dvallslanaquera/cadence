@@ -13,9 +13,9 @@ import {
   YAxis,
 } from "recharts";
 import { formatDurationHuman, minutesToHours } from "@/domain/time";
-import { Input } from "@/components/ui/primitives";
 import { axisTick, useChartTheme } from "./chartTheme";
 import { ChartTooltip, DataTable, Panel } from "./Panel";
+import { WeekCountInput } from "./WeekCountInput";
 import { useT } from "@/lib/i18n-client";
 import type { WeeklyStat } from "@/lib/types";
 
@@ -56,24 +56,7 @@ export function HoursPerWeekChart({
     <Panel
       title={t("chart.perWeek.title")}
       subtitle={t("chart.perWeek.subtitle", { weeks: weekCount, goal: weeklyGoal })}
-      controls={
-        <label className="flex items-center gap-1.5 text-xs text-fg-muted">
-          {t("chart.perWeek.weeks")}
-          <Input
-            type="number"
-            min={1}
-            max={260}
-            value={weekCount}
-            onChange={(event) => {
-              const value = Number(event.target.value);
-              if (Number.isFinite(value) && value >= 1 && value <= 260) {
-                onWeekCountChange(Math.floor(value));
-              }
-            }}
-            className="h-8 w-20"
-          />
-        </label>
-      }
+      controls={<WeekCountInput value={weekCount} onChange={onWeekCountChange} />}
       table={
         <DataTable
           head={[t("chart.perWeek.col.week"), t("chart.perWeek.col.tracked"), t("chart.perWeek.col.avg", { n: ROLLING_WINDOW })]}

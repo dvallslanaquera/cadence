@@ -2,6 +2,7 @@
 
 import type { ReactNode } from "react";
 import { cn } from "@/lib/utils";
+import { Spinner } from "@/components/ui/primitives";
 import { useT } from "@/lib/i18n-client";
 
 export function Panel({
@@ -103,6 +104,15 @@ export function ChartTooltip({
           <span className="tabular ml-auto pl-3 font-medium text-fg">{row.value}</span>
         </p>
       ))}
+    </div>
+  );
+}
+
+/** Panel-sized placeholder while a chart's data loads. */
+export function PanelSkeleton() {
+  return (
+    <div className="flex h-72 items-center justify-center rounded-xl border border-border bg-surface">
+      <Spinner />
     </div>
   );
 }
