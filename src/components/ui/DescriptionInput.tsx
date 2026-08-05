@@ -20,6 +20,10 @@ export interface DescriptionInputProps {
   onOpenChange?: (open: boolean) => void;
   placeholder?: string;
   autoFocus?: boolean;
+  /** Open the list on focus, not just on typing, so an empty field shows recent descriptions to pick from. The editor leaves this off so editing an existing entry shows the entry, not a menu; the timer strip turns it on so a fresh start surfaces recent work. */
+  openOnFocus?: boolean;
+  /** Class for the underlying input; overrides the framed Input default via tailwind-merge. */
+  inputClassName?: string;
 }
 
 // Description field with history suggestions. List opens on typing, not focus, so editing an existing entry shows the entry, not a menu covering the fields below.
@@ -32,12 +36,15 @@ export function DescriptionInput({
   onOpenChange,
   placeholder,
   autoFocus,
+  openOnFocus,
+  inputClassName,
 }: DescriptionInputProps) {
   const { data: history } = useDescriptionHistory();
   const inputRef = useRef<HTMLInputElement>(null);
   const listId = useId();
 
   const [typing, setTyping] = useState(false);
+  const [focused, setFocused] = useState(false);
   const [highlight, setHighlight] = useState(-1);
 
   // History arrives ordered by frequency, so ranking only filters and breaks ties; the paired project rides along so a chosen description carries its project up to the editor.
@@ -53,7 +60,7 @@ export function DescriptionInput({
     return map;
   }, [history]);
 
-  const open = typing && suggestions.length > 0;
+  const open = (typing || Boolean(openOnFocus && focused)) && suggestions.length > 0;
 
   useEffect(() => {
     onOpenChange?.(open);
@@ -61,6 +68,7 @@ export function DescriptionInput({
 
   function close() {
     setTyping(false);
+    setFocused(false);
     setHighlight(-1);
   }
 
@@ -119,6 +127,8 @@ export function DescriptionInput({
         aria-activedescendant={highlight >= 0 ? `${listId}-${highlight}` : undefined}
         aria-autocomplete="list"
         autoComplete="off"
+        className={inputClassName}
+        onFocus={() => setFocused(true)}
         onChange={(event) => {
           onChange(event.target.value);
           setTyping(true);

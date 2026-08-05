@@ -18,9 +18,11 @@ import {
   parseClockToMinutes,
 } from "@/domain/time";
 import { cn } from "@/lib/utils";
+import { DescriptionInput } from "@/components/ui/DescriptionInput";
 import { ProjectPicker } from "@/components/ui/ProjectPicker";
 import { useT } from "@/lib/i18n-client";
 import type { Entry } from "@/lib/types";
+import { useCommitField } from "./useCommitField";
 
 // Timer strip with live inputs (title, project, start time) so fixes cost one click. Turns amber past the alert threshold.
 export function RunningBar() {
@@ -32,14 +34,21 @@ export function RunningBar() {
   const { t } = useT();
 
   const descriptionRef = useRef<HTMLInputElement>(null);
+  const [draft, setDraft] = useState("");
+  const [draftProjectId, setDraftProjectId] = useState<string | null>(null);
   const entry = data?.entry ?? null;
   const tz = settings?.timezone ?? "UTC";
 
-  function startEmpty() {
+  // Type a name (or pick a recent one) before pressing play; startedAt defaults to now on the server. An empty draft still starts, so the old click-play-then-name flow keeps working.
+  function startWithDraft() {
+    if (start.isPending) return;
+    const description = draft.trim();
     start.mutate(
-      {},
+      { description: description || undefined, projectId: draftProjectId ?? undefined },
       {
         onSuccess: () => {
+          setDraft("");
+          setDraftProjectId(null);
           requestAnimationFrame(() => descriptionRef.current?.focus());
         },
       },
@@ -66,9 +75,26 @@ export function RunningBar() {
         {entry ? (
           <RunningFields entry={entry} tz={tz} descriptionRef={descriptionRef} />
         ) : (
-          <span className="min-w-0 flex-1 truncate px-1 text-sm text-fg-subtle">
-            {t("timer.idle")}
-          </span>
+          <DescriptionInput
+            openOnFocus
+            value={draft}
+            placeholder={t("timer.placeholder")}
+            onChange={(value) => {
+              setDraft(value);
+              setDraftProjectId(null);
+            }}
+            onSelectSuggestion={(_description, projectId) => setDraftProjectId(projectId)}
+            onSubmit={startWithDraft}
+            onCancel={() => {
+              setDraft("");
+              setDraftProjectId(null);
+            }}
+            inputClassName={cn(
+              "h-8 min-w-0 flex-1 rounded-lg border border-transparent bg-transparent px-2 text-sm font-medium",
+              "placeholder:font-normal placeholder:text-fg-subtle",
+              "transition hover:border-border focus:border-border focus:bg-surface focus:outline-none",
+            )}
+          />
         )}
 
         {entry ? (
@@ -89,7 +115,7 @@ export function RunningBar() {
         type="button"
         aria-label={entry ? t("timer.stop") : t("timer.start")}
         title={entry ? t("timer.stop") : t("timer.start")}
-        onClick={() => (entry ? stop.mutate() : startEmpty())}
+        onClick={() => (entry ? stop.mutate() : startWithDraft())}
         disabled={stop.isPending || start.isPending}
         className={cn(
           "flex h-14 w-14 shrink-0 items-center justify-center rounded-xl shadow-[var(--shadow)] transition",
@@ -124,21 +150,14 @@ function RunningFields({
   const update = useUpdateEntry();
   const { t } = useT();
 
-  const [description, setDescription] = useState<string | null>(null);
-  const [startTime, setStartTime] = useState<string | null>(null);
-
   const serverStartTime = formatClock(new Date(entry.startedAt), tz);
 
-  function commitDescription() {
-    const next = description;
-    setDescription(null);
+  const description = useCommitField(entry.description, (next) => {
     if (next === null || next.trim() === entry.description.trim()) return;
     update.mutate({ id: entry.id, description: next.trim() });
-  }
+  });
 
-  function commitStartTime() {
-    const next = startTime;
-    setStartTime(null);
+  const startTime = useCommitField(serverStartTime, (next) => {
     if (next === null || next === serverStartTime) return;
     const minutes = parseClockToMinutes(next);
     if (minutes === null) return;
@@ -151,24 +170,14 @@ function RunningFields({
         tz,
       ).toISOString(),
     });
-  }
+  });
 
   return (
     <>
       <input
         ref={descriptionRef}
-        value={description ?? entry.description}
         placeholder={t("timer.placeholder")}
-        onFocus={() => setDescription(entry.description)}
-        onChange={(event) => setDescription(event.target.value)}
-        onBlur={commitDescription}
-        onKeyDown={(event) => {
-          if (event.key === "Enter") event.currentTarget.blur();
-          if (event.key === "Escape") {
-            setDescription(null);
-            event.currentTarget.blur();
-          }
-        }}
+        {...description}
         className={cn(
           "h-8 min-w-0 flex-1 rounded-lg border border-transparent bg-transparent px-2 text-sm font-medium",
           "placeholder:font-normal placeholder:text-fg-subtle",
@@ -186,17 +195,7 @@ function RunningFields({
       <input
         type="time"
         aria-label={t("timer.starttime")}
-        value={startTime ?? serverStartTime}
-        onFocus={() => setStartTime(serverStartTime)}
-        onChange={(event) => setStartTime(event.target.value)}
-        onBlur={commitStartTime}
-        onKeyDown={(event) => {
-          if (event.key === "Enter") event.currentTarget.blur();
-          if (event.key === "Escape") {
-            setStartTime(null);
-            event.currentTarget.blur();
-          }
-        }}
+        {...startTime}
         className={cn(
           "tabular h-8 shrink-0 rounded-lg border border-transparent bg-transparent px-1.5 text-sm text-fg-muted",
           "transition hover:border-border focus:border-border focus:bg-surface focus:text-fg focus:outline-none",
