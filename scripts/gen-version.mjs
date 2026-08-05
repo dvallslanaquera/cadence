@@ -26,6 +26,16 @@ const commitCount = git("rev-list --count HEAD");
 const commit = git("rev-parse --short HEAD");
 const commitDate = git("show -s --format=%cI HEAD");
 
+// No git available: a Vercel CLI upload ships a file bundle without .git, and a
+// tarball checkout has none either. Leave the committed src/lib/version.ts in
+// place so the About page reflects the committed build, rather than overwriting
+// it with build 0 / "no git" placeholders. A git-connected Vercel build clones
+// the repo, so this only fires for the file-bundle case.
+if (!commit) {
+  console.log("version: no git; leaving committed src/lib/version.ts as-is");
+  process.exit(0);
+}
+
 const build = commitCount ? Number(commitCount) : 0;
 // %cI is ISO 8601 strict (e.g. 2026-08-03T17:43:01+09:00); take the date half so
 // the About line reads "built 2026-08-03" rather than a wall of timezone.
