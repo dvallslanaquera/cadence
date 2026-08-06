@@ -26,7 +26,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   const navLabel = (id: string) => t(`nav.${id}`);
 
   return (
-    <div className="flex min-h-screen">
+    <div className="flex h-screen overflow-hidden">
       <ThemeSync />
       <aside className="sticky top-0 hidden h-screen w-[232px] shrink-0 flex-col border-r border-border bg-surface/60 px-4 py-5 md:flex">
         <Link href="/" className="mb-6 flex items-center gap-2.5 px-2 text-lg font-semibold">
@@ -60,12 +60,12 @@ export function AppShell({ children }: { children: ReactNode }) {
         </nav>
       </aside>
 
-      <div className="flex min-w-0 flex-1 flex-col">
+      <div className="flex min-w-0 flex-1 min-h-0 flex-col">
         <div className="mx-auto w-full max-w-[1400px] px-3 sm:px-5">
           <RunningBar />
         </div>
 
-        <main className="mx-auto flex w-full max-w-[1400px] flex-1 min-h-0 flex-col px-3 pb-24 sm:px-5 md:pb-8">
+        <main className="mx-auto flex w-full max-w-[1400px] flex-1 min-h-0 flex-col overflow-y-auto px-3 pb-24 sm:px-5 md:pb-8">
           {children}
         </main>
       </div>

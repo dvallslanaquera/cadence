@@ -30,7 +30,7 @@ documented in [ARCHITECTURE.md](./ARCHITECTURE.md).
 
 ## Features
 
-- Week grid: click empty space to start a live timer, drag to log a fixed
+- Timetable grid: click empty space to start a live timer, drag to log a fixed
   block, hold `Alt` for minute precision. Drag a block to move it, drag its
   edges to resize.
 - Backlog timers: start a running entry from any task with the description
@@ -40,7 +40,7 @@ documented in [ARCHITECTURE.md](./ARCHITECTURE.md).
 - Runaway-timer alerts: a scheduled check emails you once when a running entry
   passes the threshold. Nothing truncates a timer; your data stays literally
   what the clock did.
-- Dashboard: hours per day and per week with goal reference lines, a project
+- Metrics: hours per day and per week with goal reference lines, a project
   donut, and a summary strip. Project colours are validated against the app's
   own surfaces with a palette validator.
 

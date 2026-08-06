@@ -6,10 +6,10 @@ export type Lang = (typeof LANGUAGE_IDS)[number];
 // `label` is the English name, always shown as-is, so "Language" and its option names stay English. `locale` is the BCP47 tag threaded into the date formatters.
 export const LANGUAGES: { id: Lang; label: string; locale: string }[] = [
   { id: "en", label: "English", locale: "en-GB" },
-  { id: "es", label: "Spanish", locale: "es" },
-  { id: "fr", label: "French", locale: "fr" },
-  { id: "it", label: "Italian", locale: "it" },
-  { id: "ja", label: "Japanese", locale: "ja-JP" },
+  { id: "es", label: "Español", locale: "es" },
+  { id: "fr", label: "Français", locale: "fr" },
+  { id: "it", label: "Italiano", locale: "it" },
+  { id: "ja", label: "日本語", locale: "ja-JP" },
 ];
 
 export function isLang(value: string): value is Lang {
@@ -23,9 +23,9 @@ export function localeFor(lang: Lang): string {
 type Translations = Partial<Record<Lang, string>>;
 
 export const DICTIONARY: Record<string, Translations> = {
-  "nav.week": { en: "Week", es: "Semana", fr: "Semaine", it: "Settimana", ja: "週" },
+  "nav.week": { en: "Timetable", es: "Horario", fr: "Planning", it: "Orario", ja: "タイムテーブル" },
   "nav.backlog": { en: "Backlog", es: "Tareas", fr: "Tâches", it: "Attività", ja: "バックログ" },
-  "nav.dashboard": { en: "Dashboard", es: "Panel", fr: "Tableau", it: "Cruscotto", ja: "ダッシュボード" },
+  "nav.dashboard": { en: "Metrics", es: "Métricas", fr: "Métriques", it: "Metriche", ja: "メトリクス" },
   "nav.settings": { en: "Settings", es: "Ajustes", fr: "Réglages", it: "Impostazioni", ja: "設定" },
 
   "timer.idle": {
@@ -63,7 +63,6 @@ export const DICTIONARY: Record<string, Translations> = {
   "week.prev": { en: "Previous week", es: "Semana anterior", fr: "Semaine précédente", it: "Settimana precedente", ja: "前の週" },
   "week.next": { en: "Next week", es: "Semana siguiente", fr: "Semaine suivante", it: "Settimana successiva", ja: "次の週" },
   "week.today": { en: "Today", es: "Hoy", fr: "Aujourd'hui", it: "Oggi", ja: "今日" },
-  "week.startTimer": { en: "Start timer", es: "Iniciar temporizador", fr: "Démarrer le minuteur", it: "Avvia timer", ja: "タイマーを開始" },
   "week.weekPrefix": { en: "W", es: "S", fr: "S", it: "S", ja: "第" },
   "week.weekSuffix": { en: "", es: "", fr: "", it: "", ja: "週" },
   "week.tracked": {
@@ -75,7 +74,7 @@ export const DICTIONARY: Record<string, Translations> = {
   },
   "week.fit": { en: "Fit to viewport", es: "Ajustar a la ventana", fr: "Ajuster à la fenêtre", it: "Adatta alla finestra", ja: "画面に合わせる" },
   "week.zoom": { en: "Grid zoom", es: "Zoom de la cuadrícula", fr: "Zoom de la grille", it: "Zoom della griglia", ja: "グリッドのズーム" },
-  "week.pxPerHour": { en: "{n}px/h", es: "{n}px/h", fr: "{n}px/h", it: "{n}px/h", ja: "{n}px/時" },
+  "week.pxPerHour": { en: "{n}", es: "{n}", fr: "{n}", it: "{n}", ja: "{n}" },
   "week.hint": {
     en: "Double-click to start the timer there (snaps to 15 minutes) · drag for an exact range · a double-click on an earlier day logs a {block}-minute block · hold Alt while dragging for minute precision · Ctrl+scroll to zoom",
     es: "Doble clic para iniciar el temporizador ahí (ajusta a 15 minutos) · arrastra para un intervalo exacto · un doble clic en un día anterior registra un bloque de {block} minutos · mantén Alt al arrastrar para precisión de minuto · Ctrl+rueda para hacer zoom",
@@ -155,7 +154,7 @@ export const DICTIONARY: Record<string, Translations> = {
   "confirm.confirm": { en: "Confirm", es: "Confirmar", fr: "Confirmer", it: "Conferma", ja: "確認" },
   "confirm.cancel": { en: "Cancel", es: "Cancelar", fr: "Annuler", it: "Annulla", ja: "キャンセル" },
 
-  "dash.heading": { en: "Dashboard", es: "Panel", fr: "Tableau de bord", it: "Cruscotto", ja: "ダッシュボード" },
+  "dash.heading": { en: "Metrics", es: "Métricas", fr: "Métriques", it: "Metriche", ja: "メトリクス" },
   "dash.range.week": { en: "This week", es: "Esta semana", fr: "Cette semaine", it: "Questa settimana", ja: "今週" },
   "dash.range.month": { en: "4 weeks", es: "4 semanas", fr: "4 semaines", it: "4 settimane", ja: "4週間" },
   "dash.range.quarter": { en: "13 weeks", es: "13 semanas", fr: "13 semaines", it: "13 settimane", ja: "13週間" },
@@ -323,9 +322,9 @@ export const DICTIONARY: Record<string, Translations> = {
   "theme.slate": { en: "Slate", es: "Pizarra", fr: "Ardoise", it: "Ardesia", ja: "スレート" },
   "theme.terminal": { en: "Terminal", es: "Terminal", fr: "Terminal", it: "Terminale", ja: "ターミナル" },
 
-  "page.week": { en: "Week", es: "Semana", fr: "Semaine", it: "Settimana", ja: "週" },
+  "page.week": { en: "Timetable", es: "Horario", fr: "Planning", it: "Orario", ja: "タイムテーブル" },
   "page.backlog": { en: "Backlog", es: "Tareas", fr: "Tâches", it: "Attività", ja: "バックログ" },
-  "page.dashboard": { en: "Dashboard", es: "Panel", fr: "Tableau de bord", it: "Cruscotto", ja: "ダッシュボード" },
+  "page.dashboard": { en: "Metrics", es: "Métricas", fr: "Métriques", it: "Metriche", ja: "メトリクス" },
   "page.settings": { en: "Settings", es: "Ajustes", fr: "Réglages", it: "Impostazioni", ja: "設定" },
   "page.signin": { en: "Sign in", es: "Iniciar sesión", fr: "Connexion", it: "Accedi", ja: "サインイン" },
 
@@ -354,13 +353,23 @@ export const DICTIONARY: Record<string, Translations> = {
   "toast.undo": { en: "Undo", es: "Deshacer", fr: "Annuler", it: "Annulla", ja: "元に戻す" },
   "toast.settingsSaved": { en: "Settings saved", es: "Ajustes guardados", fr: "Réglages enregistrés", it: "Impostazioni salvate", ja: "設定を保存しました" },
 
-  "export.button": { en: "Export", es: "Exportar", fr: "Exporter", it: "Esporta", ja: "エクスポート" },
+  "error.title": { en: "Could not load", es: "No se pudo cargar", fr: "Chargement impossible", it: "Caricamento non riuscito", ja: "読み込めませんでした" },
+  "error.hint": {
+    en: "The server did not answer. It may be down, or the database may be unreachable.",
+    es: "El servidor no respondió. Puede estar caído o la base de datos no estar accesible.",
+    fr: "Le serveur n'a pas répondu. Il est peut-être arrêté ou la base de données inaccessible.",
+    it: "Il server non ha risposto. Potrebbe essere spento o il database irraggiungibile.",
+    ja: "サーバーが応答しませんでした。サーバーが停止しているか、データベースに接続できない可能性があります。",
+  },
+  "error.retry": { en: "Try again", es: "Reintentar", fr: "Réessayer", it: "Riprova", ja: "再試行" },
+
+  "export.title": { en: "Export", es: "Exportar", fr: "Exporter", it: "Esporta", ja: "エクスポート" },
   "export.hint": {
-    en: "CSV export columns. Only completed entries are exported.",
-    es: "Columnas de exportación CSV. Solo se exportan las entradas completadas.",
-    fr: "Colonnes de l'export CSV. Seules les entrées terminées sont exportées.",
-    it: "Colonne dell'esportazione CSV. Solo le voci completate vengono esportate.",
-    ja: "CSVエクスポートの列。完了したエントリーのみエクスポートされます。",
+    en: "Downloads the completed entries in this range as a CSV. A running timer is left out until you stop it.",
+    es: "Descarga en CSV las entradas completadas de este rango. Un temporizador en marcha queda fuera hasta que lo detienes.",
+    fr: "Télécharge les entrées terminées de cette plage en CSV. Un minuteur en cours est exclu tant que vous ne l'arrêtez pas.",
+    it: "Scarica in CSV le voci completate di questo intervallo. Un timer in corso resta fuori finché non lo fermi.",
+    ja: "この期間の完了したエントリーをCSVでダウンロードします。実行中のタイマーは停止するまで含まれません。",
   },
   "export.from": { en: "From", es: "Desde", fr: "De", it: "Da", ja: "開始" },
   "export.to": { en: "To", es: "Hasta", fr: "À", it: "A", ja: "終了" },

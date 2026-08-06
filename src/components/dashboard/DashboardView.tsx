@@ -13,11 +13,11 @@ import {
   shiftWeeks,
   startOfLocalWeek,
 } from "@/domain/time";
-import { Spinner } from "@/components/ui/primitives";
+import { ErrorState, Spinner } from "@/components/ui/primitives";
 import { useT } from "@/lib/i18n-client";
 import { HoursPerDayChart } from "./HoursPerDayChart";
 import { HoursPerWeekChart } from "./HoursPerWeekChart";
-import { PanelSkeleton } from "./Panel";
+import { PanelError, PanelSkeleton } from "./Panel";
 import { ProjectDonut } from "./ProjectDonut";
 import { RangePresets, type RangePreset } from "./RangePresets";
 import { SummaryStrip } from "./SummaryStrip";
@@ -30,7 +30,12 @@ const RANGE_WEEKS: Record<RangePreset, number> = {
 };
 
 export function DashboardView() {
-  const { data: settings, isLoading: settingsLoading } = useSettings();
+  const {
+    data: settings,
+    isLoading: settingsLoading,
+    isError: settingsError,
+    refetch: refetchSettings,
+  } = useSettings();
   const tz = settings?.timezone ?? "UTC";
   const goalHours = settings?.dailyGoalHours ?? 8;
   const { t, locale } = useT();
@@ -67,6 +72,20 @@ export function DashboardView() {
     );
   }
 
+  // Every panel below is bucketed by the stored timezone, so falling back to UTC here would chart the wrong days rather than admit the read failed.
+  if (settingsError || !settings) {
+    return (
+      <div className="py-4">
+        <ErrorState
+          title={t("error.title")}
+          hint={t("error.hint")}
+          retryLabel={t("error.retry")}
+          onRetry={() => void refetchSettings()}
+        />
+      </div>
+    );
+  }
+
   const weekdayLabel = (dayKey: string) =>
     formatWeekdayShort(instantFromLocalParts(dayKey, 12 * 60, tz), tz, locale);
 
@@ -85,8 +104,10 @@ export function DashboardView() {
       />
 
       <div className="grid gap-4 lg:grid-cols-2">
-        {daily.isLoading || !daily.data ? (
+        {daily.isLoading ? (
           <PanelSkeleton />
+        ) : daily.isError || !daily.data ? (
+          <PanelError onRetry={() => void daily.refetch()} />
         ) : (
           <HoursPerDayChart
             days={daily.data.days}
@@ -95,15 +116,19 @@ export function DashboardView() {
           />
         )}
 
-        {projects.isLoading || !projects.data ? (
+        {projects.isLoading ? (
           <PanelSkeleton />
+        ) : projects.isError || !projects.data ? (
+          <PanelError onRetry={() => void projects.refetch()} />
         ) : (
           <ProjectDonut projects={projects.data} />
         )}
       </div>
 
-      {weekly.isLoading || !weekly.data ? (
+      {weekly.isLoading ? (
         <PanelSkeleton />
+      ) : weekly.isError || !weekly.data ? (
+        <PanelError onRetry={() => void weekly.refetch()} />
       ) : (
         <HoursPerWeekChart
           weeks={weekly.data.weeks}

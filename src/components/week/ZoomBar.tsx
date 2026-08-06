@@ -16,7 +16,7 @@ export function ZoomBar({ hourHeight, onApplyZoom, onResetFit, min, max }: ZoomB
   const { t } = useT();
 
   return (
-    <div className="mt-2 flex w-1/2 items-center justify-center gap-2">
+    <div className="mt-2 flex items-center justify-start gap-2">
       <IconButton label={t("week.fit")} onClick={onResetFit}>
         <Maximize2 className="h-3.5 w-3.5" />
       </IconButton>
@@ -28,11 +28,8 @@ export function ZoomBar({ hourHeight, onApplyZoom, onResetFit, min, max }: ZoomB
         step={1}
         value={hourHeight}
         onChange={(event) => onApplyZoom(Number(event.target.value))}
-        className="h-1 w-32 cursor-pointer accent-accent"
+        className="h-1 w-28 cursor-pointer accent-accent"
       />
-      <span className="tabular w-12 shrink-0 text-right text-[10px] text-fg-subtle">
-        {t("week.pxPerHour", { n: hourHeight })}
-      </span>
     </div>
   );
 }

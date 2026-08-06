@@ -15,11 +15,13 @@ import { nextProjectColor, THEMES } from "@/lib/constants";
 import { APP_BUILD, APP_BUILD_DATE, APP_COMMIT, APP_VERSION } from "@/lib/version";
 import { cn } from "@/lib/utils";
 import { ColorSwatchPicker } from "@/components/ui/ColorSwatchPicker";
+import { ExportSection } from "./ExportSection";
 import { useT } from "@/lib/i18n-client";
 import { LANGUAGES } from "@/lib/i18n";
 import {
   Button,
   ColorDot,
+  ErrorState,
   Field,
   IconButton,
   Input,
@@ -46,7 +48,7 @@ function timezoneOptions(current: string): string[] {
 }
 
 export function SettingsView() {
-  const { data: settings, isLoading } = useSettings();
+  const { data: settings, isLoading, isError, refetch } = useSettings();
   const { data: projects } = useProjects(true);
   const updateSettings = useUpdateSettings();
   const { t } = useT();
@@ -79,10 +81,24 @@ export function SettingsView() {
     updateSettings.mutate({ theme: id });
   }
 
-  if (isLoading || !settings) {
+  if (isLoading) {
     return (
       <div className="flex h-64 items-center justify-center">
         <Spinner />
+      </div>
+    );
+  }
+
+  // Settled with no row means the read failed; keep spinning and a dead API looks like a slow one.
+  if (isError || !settings) {
+    return (
+      <div className="max-w-2xl py-4">
+        <ErrorState
+          title={t("error.title")}
+          hint={t("error.hint")}
+          retryLabel={t("error.retry")}
+          onRetry={() => void refetch()}
+        />
       </div>
     );
   }
@@ -202,6 +218,9 @@ export function SettingsView() {
       </section>
 
       <ProjectSection projects={projects ?? []} />
+
+      {/* Remount on a saved zone change so the default range follows it. */}
+      <ExportSection key={settings.timezone} tz={settings.timezone} />
 
       <section className="rounded-xl border border-border bg-surface p-4">
         <h2 className="mb-1 text-sm font-semibold">{t("settings.alerts.title")}</h2>

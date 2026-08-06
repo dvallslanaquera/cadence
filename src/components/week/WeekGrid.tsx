@@ -1,8 +1,8 @@
 "use client";
 
-import type { RefObject } from "react";
-import { dayKey as toDayKey, formatMinutesAsClock, wallClockMinutes } from "@/domain/time";
 import { Spinner } from "@/components/ui/primitives";
+import { formatMinutesAsClock, dayKey as toDayKey, wallClockMinutes } from "@/domain/time";
+import type { RefObject } from "react";
 import { DayColumn } from "./DayColumn";
 import { NowLine } from "./NowLine";
 import { GRID_MINUTES, type PositionedSegment } from "./geometry";
@@ -71,7 +71,7 @@ export function WeekGrid({
           {HOUR_LABELS.map((label, hour) => (
             <div
               key={hour}
-              className="absolute right-1.5 -translate-y-1/2 text-[10px] tabular text-fg-subtle"
+              className="absolute right-1.5 -translate-y-1/2 text-[14px] tabular text-fg-subtle"
               style={{ top: hour * hourHeight }}
             >
               {label}

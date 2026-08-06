@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { DEFAULT_BLOCK_MINUTES, MAX_HOUR_HEIGHT_PX, MIN_HOUR_HEIGHT_PX } from "@/lib/constants";
+import { MAX_HOUR_HEIGHT_PX, MIN_HOUR_HEIGHT_PX } from "@/lib/constants";
 import { useMediaQuery, useNow } from "@/lib/hooks";
 import {
   useCreateEntry,
@@ -23,7 +23,6 @@ import {
   weekStartFromKey,
 } from "@/domain/time";
 import { newEntryId } from "@/lib/utils";
-import { useT } from "@/lib/i18n-client";
 import type { Task } from "@/lib/types";
 import { DayHeaderRow } from "./DayHeaderRow";
 import { MobileDayStrip } from "./MobileDayStrip";
@@ -41,7 +40,6 @@ export function WeekView() {
   const searchParams = useSearchParams();
   const { data: settings } = useSettings();
   const tz = settings?.timezone ?? "UTC";
-  const { t } = useT();
 
   const now = useNow(30_000);
   const isDesktop = useMediaQuery("(min-width: 768px)");
@@ -217,7 +215,6 @@ export function WeekView() {
         onPrevWeek={() => goToWeek(-1)}
         onNextWeek={() => goToWeek(1)}
         onToday={handleToday}
-        onQuickStart={() => quickStart()}
       />
 
       {!isDesktop ? (
@@ -267,10 +264,6 @@ export function WeekView() {
         min={MIN_HOUR_HEIGHT_PX}
         max={MAX_HOUR_HEIGHT_PX}
       />
-
-      <p className="mt-2 text-center text-[11px] text-fg-subtle">
-        {t("week.hint", { block: DEFAULT_BLOCK_MINUTES })}
-      </p>
     </div>
   );
 }

@@ -1,33 +1,25 @@
 "use client";
 
-import { useRef, useState } from "react";
-import { AlertTriangle, Play, Square } from "lucide-react";
+import { DescriptionInput } from "@/components/ui/DescriptionInput";
+import { ProjectPicker } from "@/components/ui/ProjectPicker";
+import { formatElapsedWithSeconds } from "@/domain/time";
 import { useNow } from "@/lib/hooks";
+import { useT } from "@/lib/i18n-client";
 import {
   useRunning,
-  useSettings,
   useStartTimer,
   useStopTimer,
   useUpdateEntry,
 } from "@/lib/queries";
-import {
-  dayKey,
-  formatClock,
-  formatElapsedWithSeconds,
-  instantFromLocalParts,
-  parseClockToMinutes,
-} from "@/domain/time";
-import { cn } from "@/lib/utils";
-import { DescriptionInput } from "@/components/ui/DescriptionInput";
-import { ProjectPicker } from "@/components/ui/ProjectPicker";
-import { useT } from "@/lib/i18n-client";
 import type { Entry } from "@/lib/types";
+import { cn } from "@/lib/utils";
+import { AlertTriangle, Play, Square } from "lucide-react";
+import { useRef, useState } from "react";
 import { useCommitField } from "./useCommitField";
 
 // Timer strip with live inputs (title, project, start time) so fixes cost one click. Turns amber past the alert threshold.
 export function RunningBar() {
   const { data } = useRunning();
-  const { data: settings } = useSettings();
   const start = useStartTimer();
   const stop = useStopTimer();
   const now = useNow(1000);
@@ -37,7 +29,6 @@ export function RunningBar() {
   const [draft, setDraft] = useState("");
   const [draftProjectId, setDraftProjectId] = useState<string | null>(null);
   const entry = data?.entry ?? null;
-  const tz = settings?.timezone ?? "UTC";
 
   // Type a name (or pick a recent one) before pressing play; startedAt defaults to now on the server. An empty draft still starts, so the old click-play-then-name flow keeps working.
   function startWithDraft() {
@@ -73,7 +64,7 @@ export function RunningBar() {
         <PulseDot active={Boolean(entry)} overdue={overdue} />
 
         {entry ? (
-          <RunningFields entry={entry} tz={tz} descriptionRef={descriptionRef} />
+          <RunningFields entry={entry} descriptionRef={descriptionRef} />
         ) : (
           <DescriptionInput
             openOnFocus
@@ -100,7 +91,7 @@ export function RunningBar() {
         {entry ? (
           <span
             className={cn(
-              "tabular shrink-0 px-1 text-sm font-semibold",
+              "tabular shrink-0 px-1 text-2xl font-semibold",
               overdue && "text-warning",
             )}
           >
@@ -140,36 +131,17 @@ export function RunningBar() {
 // Each field holds keystrokes until commit; useRunning polls every 30s and would overwrite mid-typing.
 function RunningFields({
   entry,
-  tz,
   descriptionRef,
 }: {
   entry: Entry;
-  tz: string;
   descriptionRef: React.RefObject<HTMLInputElement | null>;
 }) {
   const update = useUpdateEntry();
   const { t } = useT();
 
-  const serverStartTime = formatClock(new Date(entry.startedAt), tz);
-
   const description = useCommitField(entry.description, (next) => {
     if (next === null || next.trim() === entry.description.trim()) return;
     update.mutate({ id: entry.id, description: next.trim() });
-  });
-
-  const startTime = useCommitField(serverStartTime, (next) => {
-    if (next === null || next === serverStartTime) return;
-    const minutes = parseClockToMinutes(next);
-    if (minutes === null) return;
-    // Keep the entry on its start day; only time of day is editable here, moving days is a grid drag.
-    update.mutate({
-      id: entry.id,
-      startedAt: instantFromLocalParts(
-        dayKey(new Date(entry.startedAt), tz),
-        minutes,
-        tz,
-      ).toISOString(),
-    });
   });
 
   return (
@@ -190,16 +162,6 @@ function RunningFields({
         value={entry.project.id}
         fallback={entry.project}
         onChange={(projectId) => update.mutate({ id: entry.id, projectId })}
-      />
-
-      <input
-        type="time"
-        aria-label={t("timer.starttime")}
-        {...startTime}
-        className={cn(
-          "tabular h-8 shrink-0 rounded-lg border border-transparent bg-transparent px-1.5 text-sm text-fg-muted",
-          "transition hover:border-border focus:border-border focus:bg-surface focus:text-fg focus:outline-none",
-        )}
       />
     </>
   );
