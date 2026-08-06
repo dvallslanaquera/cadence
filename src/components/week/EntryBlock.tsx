@@ -288,7 +288,7 @@ export const EntryBlock = memo(function EntryBlock({
               <Popover.Arrow className="fill-[var(--border)]" />
             </>
           ) : (
-            <div className="w-[min(360px,calc(100vw-32px))] rounded-xl border border-border bg-surface p-3 shadow-[var(--shadow)]">
+            <div className="popover-phone w-[min(360px,calc(100vw-32px))] rounded-xl border border-border bg-surface p-3 shadow-[var(--shadow)]">
               <EntryPopover
                 entry={entry}
                 onClose={() => onSelect(null)}

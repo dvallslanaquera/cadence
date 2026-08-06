@@ -60,6 +60,7 @@ export function SettingsView() {
   const [alertsEnabled, setAlertsEnabled] = useState(true);
   const [theme, setTheme] = useState("system");
   const [language, setLanguage] = useState("en");
+  const [fontSize, setFontSize] = useState("default");
 
   useEffect(() => {
     if (!settings) return;
@@ -70,6 +71,7 @@ export function SettingsView() {
     setAlertsEnabled(settings.alertsEnabled);
     setTheme(settings.theme);
     setLanguage(settings.language);
+    setFontSize(settings.fontSize);
   }, [settings]);
 
   function pickTheme(id: string) {
@@ -79,6 +81,15 @@ export function SettingsView() {
     if (id === "system") delete el.dataset.theme;
     else el.dataset.theme = id;
     updateSettings.mutate({ theme: id });
+  }
+
+  function pickFontSize(id: string) {
+    setFontSize(id);
+    // Apply immediately so the zoom is instant; FontSizeSync reconciles after the refetch.
+    const el = document.documentElement;
+    if (id === "default") delete el.dataset.fontsize;
+    else el.dataset.fontsize = id;
+    updateSettings.mutate({ fontSize: id });
   }
 
   if (isLoading) {
@@ -108,6 +119,8 @@ export function SettingsView() {
       <h1 className="text-lg font-semibold">{t("settings.heading")}</h1>
 
       <ThemeSection theme={theme} onPick={pickTheme} />
+
+      <FontSizeSection fontSize={fontSize} onPick={pickFontSize} />
 
       <section className="rounded-xl border border-border bg-surface p-4">
         <h2 className="mb-1 text-sm font-semibold">{t("settings.language")}</h2>
@@ -483,6 +496,46 @@ function ThemeSection({
           </p>
           <div className="grid gap-2 sm:grid-cols-2">{dark.map(option)}</div>
         </div>
+      </div>
+    </section>
+  );
+}
+
+function FontSizeSection({
+  fontSize,
+  onPick,
+}: {
+  fontSize: string;
+  onPick: (id: string) => void;
+}) {
+  const { t } = useT();
+  const options = [
+    { id: "small", label: t("settings.fontSize.small") },
+    { id: "default", label: t("settings.fontSize.default") },
+    { id: "large", label: t("settings.fontSize.large") },
+  ];
+
+  return (
+    <section className="rounded-xl border border-border bg-surface p-4">
+      <h2 className="mb-1 text-sm font-semibold">{t("settings.fontSize.title")}</h2>
+      <p className="mb-3 text-xs text-fg-muted">{t("settings.fontSize.copy")}</p>
+      <div className="grid grid-cols-3 gap-2">
+        {options.map((opt) => {
+          const selected = opt.id === fontSize;
+          return (
+            <button
+              key={opt.id}
+              type="button"
+              onClick={() => onPick(opt.id)}
+              className={cn(
+                "rounded-lg border p-2 text-center text-sm transition",
+                selected ? "border-accent ring-1 ring-accent" : "border-border hover:bg-surface-2",
+              )}
+            >
+              {opt.label}
+            </button>
+          );
+        })}
       </div>
     </section>
   );

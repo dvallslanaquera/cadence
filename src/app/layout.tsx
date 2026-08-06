@@ -3,7 +3,7 @@ import "./globals.css";
 import { Providers } from "./providers";
 import { AppShell } from "@/components/shell/AppShell";
 import { ServiceWorker } from "@/components/shell/ServiceWorker";
-import { getLanguage, getTheme } from "@/server/settings";
+import { getFontSize, getLanguage, getTheme } from "@/server/settings";
 import { isLang } from "@/lib/i18n";
 
 // Theme is per-user in the Settings row; force-dynamic avoids Next baking the build-time palette into static HTML.
@@ -43,9 +43,19 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   } catch {
   }
 
+  let fontSize = "default";
+  try {
+    fontSize = await getFontSize();
+  } catch {
+  }
+
   return (
-    <html lang={language} data-theme={theme === "system" ? undefined : theme}>
-      <body className="min-h-full bg-bg text-fg">
+    <html
+      lang={language}
+      data-theme={theme === "system" ? undefined : theme}
+      data-fontsize={fontSize !== "default" ? fontSize : undefined}
+    >
+      <body className="bg-bg text-fg">
         <Providers>
           <AppShell>{children}</AppShell>
           <ServiceWorker />

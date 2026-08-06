@@ -19,6 +19,8 @@ import { EntryBlock } from "./EntryBlock";
 import { GRID_MINUTES, type PositionedSegment } from "./geometry";
 
 const CLICK_THRESHOLD_PX = 5;
+// Touch slop: a finger tap drifts further than a mouse click, so a touch tap needs more travel before it counts as a drag. Below standard touch slop (~8px), stray drift flipped a tap into a one-minute drag-create.
+const TOUCH_CLICK_THRESHOLD_PX = 10;
 // Touch double-tap window/travel. Single taps are swallowed by the pointer path, so this is the only touch create path.
 const DOUBLE_TAP_MS = 300;
 const DOUBLE_TAP_MAX_PX = 30;
@@ -63,7 +65,7 @@ export function DayColumn({
   hourHeight,
 }: DayColumnProps) {
   const columnRef = useRef<HTMLDivElement>(null);
-  const dragState = useRef<{ anchorMinutes: number; moved: boolean } | null>(null);
+  const dragState = useRef<{ anchorMinutes: number; anchorY: number; moved: boolean } | null>(null);
   const [ghost, setGhost] = useState<{ from: number; to: number } | null>(null);
   // Last unpaired touch tap; nulled after a pair fires so a triple tap doesn't start a second entry.
   const lastTap = useRef<{ time: number; y: number } | null>(null);
@@ -83,6 +85,8 @@ export function DayColumn({
     event.currentTarget.setPointerCapture(event.pointerId);
     dragState.current = {
       anchorMinutes: minutesAt(event.clientY, event.altKey ? FINE_SNAP_MINUTES : SNAP_MINUTES),
+      // Raw pointer Y drives the tap/drag threshold; the snapped-minute delta quantizes (an 8px move can snap to a 10-minute jump at high zoom), so it can't be trusted to tell a tap from a drag.
+      anchorY: event.clientY,
       moved: false,
     };
     setGhost(null);
@@ -92,11 +96,12 @@ export function DayColumn({
     const state = dragState.current;
     if (!state) return;
 
-    const current = minutesAt(event.clientY, event.altKey ? FINE_SNAP_MINUTES : SNAP_MINUTES);
-    if (!state.moved && Math.abs(current - state.anchorMinutes) * pxPerMinute < CLICK_THRESHOLD_PX) {
+    const threshold = event.pointerType === "touch" ? TOUCH_CLICK_THRESHOLD_PX : CLICK_THRESHOLD_PX;
+    if (!state.moved && Math.abs(event.clientY - state.anchorY) < threshold) {
       return;
     }
     state.moved = true;
+    const current = minutesAt(event.clientY, event.altKey ? FINE_SNAP_MINUTES : SNAP_MINUTES);
     setGhost({
       from: Math.min(state.anchorMinutes, current),
       to: Math.max(state.anchorMinutes, current),
@@ -117,6 +122,23 @@ export function DayColumn({
     else if (intent) onCreateRange(dayKey, intent.startMinutes, intent.endMinutes);
   }
 
+  // Touch under pointer capture doesn't raise dblclick; read a second tap as the double-tap. A single tap (clean or drifted) records the first half of a pair and creates nothing.
+  function handleTouchTap(clientY: number) {
+    const now = Date.now();
+    const prev = lastTap.current;
+    if (
+      prev &&
+      now - prev.time < DOUBLE_TAP_MS &&
+      Math.abs(clientY - prev.y) < DOUBLE_TAP_MAX_PX
+    ) {
+      lastTap.current = null;
+      suppressDoubleClickUntil.current = now + 500;
+      createIntentAt(clientY);
+    } else {
+      lastTap.current = { time: now, y: clientY };
+    }
+  }
+
   function onPointerUp(event: ReactPointerEvent<HTMLDivElement>) {
     const state = dragState.current;
     dragState.current = null;
@@ -125,31 +147,22 @@ export function DayColumn({
     if (!state) return;
     event.currentTarget.releasePointerCapture(event.pointerId);
 
+    const isTouch = event.pointerType === "touch";
+
     // A single click creates nothing (stray taps while scrolling left timers running); use double-click or double-tap.
     if (!state.moved) {
-      // Touch under pointer capture doesn't raise dblclick; read a second tap as the double-tap. Mouse uses the dblclick path below.
-      if (event.pointerType === "touch") {
-        const now = Date.now();
-        const prev = lastTap.current;
-        if (
-          prev &&
-          now - prev.time < DOUBLE_TAP_MS &&
-          Math.abs(event.clientY - prev.y) < DOUBLE_TAP_MAX_PX
-        ) {
-          lastTap.current = null;
-          suppressDoubleClickUntil.current = now + 500;
-          createIntentAt(event.clientY);
-        } else {
-          lastTap.current = { time: now, y: event.clientY };
-        }
-      }
+      if (isTouch) handleTouchTap(event.clientY);
       return;
     }
     if (!preview) return;
 
-    // A drag that collapsed to nothing still gets the one-minute minimum.
     const from = preview.from;
-    const to = preview.to > preview.from ? preview.to : preview.from + 1;
+    // A gesture that collapsed to nothing was a drifting tap, not a drag. Mouse logs the one-minute minimum; touch routes it through the double-tap path so a stray single tap still creates nothing.
+    if (isTouch && preview.to <= from) {
+      handleTouchTap(event.clientY);
+      return;
+    }
+    const to = preview.to > from ? preview.to : from + 1;
     onCreateRange(dayKey, from, to);
   }
 

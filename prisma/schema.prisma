@@ -99,6 +99,7 @@ model Settings {
   alertAfterHours  Int       @default(12)
   theme            String    @default("system")
   language         String    @default("en")
+  fontSize         String    @default("default")
   alertsEnabled    Boolean   @default(true)
   lastAlertCheckAt DateTime?
 }

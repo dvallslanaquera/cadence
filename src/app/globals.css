@@ -27,6 +27,16 @@
   --grid-line-strong: #e2e8f0;
   --now: #e11d48;
   --shadow: 0 1px 2px rgb(15 23 42 / 0.06), 0 8px 24px rgb(15 23 42 / 0.08);
+  /* Applied as `zoom` on <html> below. Root-level zoom scales the viewport, so the h-screen shell keeps filling it at every size. */
+  --app-zoom: 1;
+}
+
+:root[data-fontsize="small"] {
+  --app-zoom: 0.9;
+}
+
+:root[data-fontsize="large"] {
+  --app-zoom: 1.1;
 }
 
 :root[data-theme="paper"] {
@@ -166,9 +176,14 @@
   --color-now: var(--now);
 }
 
-html,
-body {
+html {
   height: 100%;
+}
+
+/* Per-user UI zoom. CSS `zoom` does not scale viewport units, so a zoomed h-screen shell would render taller than the viewport at >1x. Put the zoom on <body> and shrink its height by the same factor, so the zoomed body still fills the viewport; the h-full shell inside tracks it. */
+body {
+  height: calc(100vh / var(--app-zoom));
+  zoom: var(--app-zoom);
 }
 
 body {
@@ -198,6 +213,14 @@ textarea,
 button {
   font: inherit;
   color: inherit;
+}
+
+/* Phone editor only: entry-field text runs 2px smaller (16 -> 14). The unlayered `input { font: inherit }` rule above beats Tailwind's layered .text-sm, so form controls inherit 16px from <body>; this unlayered rule with higher specificity shaves 2px inside the phone popover only. Labels and the dial are not form controls, so they keep their size. Desktop popover has no .popover-phone wrapper. */
+.popover-phone input,
+.popover-phone select,
+.popover-phone textarea,
+.popover-phone button {
+  font-size: 14px;
 }
 
 *:focus-visible {

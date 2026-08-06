@@ -61,6 +61,7 @@ export interface Settings {
   alertAfterHours: number;
   theme: string;
   language: string;
+  fontSize: string;
   alertsEnabled: boolean;
   lastAlertCheckAt: string | null;
 }

@@ -26,9 +26,9 @@ export function AppShell({ children }: { children: ReactNode }) {
   const navLabel = (id: string) => t(`nav.${id}`);
 
   return (
-    <div className="flex h-screen overflow-hidden">
+    <div className="flex h-full overflow-hidden">
       <ThemeSync />
-      <aside className="sticky top-0 hidden h-screen w-[232px] shrink-0 flex-col border-r border-border bg-surface/60 px-4 py-5 md:flex">
+      <aside className="sticky top-0 hidden h-full w-[232px] shrink-0 flex-col border-r border-border bg-surface/60 px-4 py-5 md:flex">
         <Link href="/" className="mb-6 flex items-center gap-2.5 px-2 text-lg font-semibold">
           <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-accent-soft text-accent">
             <CalendarDays className="h-5 w-5" />
