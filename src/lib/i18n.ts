@@ -272,6 +272,18 @@ export const DICTIONARY: Record<string, Translations> = {
 
   "settings.language": { en: "Language", es: "Language", fr: "Language", it: "Language", ja: "Language" },
 
+  "settings.fontSize.title": { en: "Text size", es: "Tamaño del texto", fr: "Taille du texte", it: "Dimensione del testo", ja: "文字サイズ" },
+  "settings.fontSize.copy": {
+    en: "Scales the whole interface. Default is the native size; Larger and Smaller step by 10%.",
+    es: "Escala toda la interfaz. Predeterminado es el tamaño nativo; Más grande y Más pequeño suben o bajan un 10%.",
+    fr: "Redimensionne toute l'interface. Par défaut est la taille native ; Plus grand et Plus petit changent de 10%.",
+    it: "Ridimensiona tutta l'interfaccia. Predefinito è la dimensione nativa; Più grande e Più piccolo cambiano del 10%.",
+    ja: "インターフェース全体を拡大・縮小します。既定がネイティブサイズ、大と小はそれぞれ10%ずつ変化します。",
+  },
+  "settings.fontSize.default": { en: "Default", es: "Predeterminado", fr: "Par défaut", it: "Predefinito", ja: "既定" },
+  "settings.fontSize.large": { en: "Larger", es: "Más grande", fr: "Plus grand", it: "Più grande", ja: "大" },
+  "settings.fontSize.small": { en: "Smaller", es: "Más pequeño", fr: "Plus petit", it: "Più piccolo", ja: "小" },
+
   "projects.title": { en: "Projects", es: "Proyectos", fr: "Projets", it: "Progetti", ja: "プロジェクト" },
   "projects.copy": {
     en: "Archiving hides a project from the pickers but keeps its history. Deleting moves its entries and tasks to Others. Time data is never destroyed.",

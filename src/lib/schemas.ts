@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { THEME_IDS } from "@/lib/constants";
+import { FONT_SIZE_IDS, THEME_IDS } from "@/lib/constants";
 import { LANGUAGE_IDS } from "@/lib/i18n";
 
 /** Shared by route handlers and forms, so they cannot drift. */
@@ -84,6 +84,7 @@ export const settingsUpdateSchema = z.object({
   alertAfterHours: z.number().int().min(1).max(72).optional(),
   theme: z.enum([...THEME_IDS] as [string, ...string[]]).optional(),
   language: z.enum([...LANGUAGE_IDS] as [string, ...string[]]).optional(),
+  fontSize: z.enum([...FONT_SIZE_IDS] as [string, ...string[]]).optional(),
   alertsEnabled: z.boolean().optional(),
 });
 

@@ -147,3 +147,6 @@ export const THEMES: ThemeOption[] = [
     swatches: { bg: "#050805", surface: "#0a0f0a", accent: "#4ade80" },
   },
 ];
+
+// id is stored on Settings and written to data-fontsize on <html>; globals.css maps it to a `zoom` on the root. `default` sets no attribute so the page renders at 1x.
+export const FONT_SIZE_IDS = ["default", "small", "large"] as const;

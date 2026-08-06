@@ -9,6 +9,7 @@ export interface SettingsDto {
   alertAfterHours: number;
   theme: string;
   language: string;
+  fontSize: string;
   alertsEnabled: boolean;
   lastAlertCheckAt: string | null;
 }
@@ -34,6 +35,12 @@ export async function getLanguage(): Promise<string> {
   return settings?.language ?? "en";
 }
 
+/** Read-only font-size lookup; the root layout sets data-fontsize from it so the first frame is already zoomed. Defaults to Default. */
+export async function getFontSize(): Promise<string> {
+  const settings = await db.settings.findUnique({ where: { id: 1 }, select: { fontSize: true } });
+  return settings?.fontSize ?? "default";
+}
+
 /** getLanguage as a validated Lang, defaulting to English so a bad or missing row never breaks page metadata. */
 export async function getLanguageSafe(): Promise<Lang> {
   try {
@@ -52,6 +59,7 @@ export function toSettingsDto(settings: Settings): SettingsDto {
     alertAfterHours: settings.alertAfterHours,
     theme: settings.theme,
     language: settings.language,
+    fontSize: settings.fontSize,
     alertsEnabled: settings.alertsEnabled,
     lastAlertCheckAt: settings.lastAlertCheckAt
       ? settings.lastAlertCheckAt.toISOString()
