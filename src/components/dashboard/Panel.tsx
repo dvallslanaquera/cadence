@@ -2,7 +2,7 @@
 
 import type { ReactNode } from "react";
 import { cn } from "@/lib/utils";
-import { Spinner } from "@/components/ui/primitives";
+import { ErrorState, Spinner } from "@/components/ui/primitives";
 import { useT } from "@/lib/i18n-client";
 
 export function Panel({
@@ -114,5 +114,19 @@ export function PanelSkeleton() {
     <div className="flex h-72 items-center justify-center rounded-xl border border-border bg-surface">
       <Spinner />
     </div>
+  );
+}
+
+/** Panel-sized failure box, so one dead query says so instead of holding the skeleton forever. */
+export function PanelError({ onRetry }: { onRetry: () => void }) {
+  const { t } = useT();
+  return (
+    <ErrorState
+      className="flex h-72 flex-col items-center justify-center"
+      title={t("error.title")}
+      hint={t("error.hint")}
+      retryLabel={t("error.retry")}
+      onRetry={onRetry}
+    />
   );
 }

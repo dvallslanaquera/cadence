@@ -1,15 +1,9 @@
 "use client";
 
-import { ChevronLeft, ChevronRight, Plus } from "lucide-react";
-import {
-  formatDurationHuman,
-  formatRangeLabel,
-  isoWeekNumber,
-  isoWeekYear,
-} from "@/domain/time";
+import { ChevronLeft, ChevronRight } from "lucide-react";
+import { formatDurationHuman, formatRangeLabel, isoWeekNumber } from "@/domain/time";
 import { useT } from "@/lib/i18n-client";
 import { Button, IconButton } from "@/components/ui/primitives";
-import { ExportButton } from "./ExportButton";
 
 interface WeekViewHeaderProps {
   weekStart: Date;
@@ -19,7 +13,6 @@ interface WeekViewHeaderProps {
   onPrevWeek: () => void;
   onNextWeek: () => void;
   onToday: () => void;
-  onQuickStart: () => void;
 }
 
 export function WeekViewHeader({
@@ -30,7 +23,6 @@ export function WeekViewHeader({
   onPrevWeek,
   onNextWeek,
   onToday,
-  onQuickStart,
 }: WeekViewHeaderProps) {
   const { t, locale } = useT();
 
@@ -58,20 +50,9 @@ export function WeekViewHeader({
         </Button>
       </div>
 
-      <div className="min-w-0">
-        <h1 className="tabular truncate text-base font-semibold text-fg">
-          {t("week.tracked", { n: formatDurationHuman(weekTotal) })}
-        </h1>
-        <p className="tabular text-xs text-fg-muted">{isoWeekYear(weekStart, tz)}</p>
-      </div>
-
-      <div className="ml-auto flex items-center gap-1.5">
-        <ExportButton weekStart={weekStart} weekEnd={weekEnd} tz={tz} />
-        <Button size="sm" variant="primary" onClick={onQuickStart}>
-          <Plus className="h-3.5 w-3.5" />
-          <span className="hidden sm:inline">{t("week.startTimer")}</span>
-        </Button>
-      </div>
+      <h1 className="tabular min-w-0 truncate text-base font-semibold text-fg">
+        {t("week.tracked", { n: formatDurationHuman(weekTotal) })}
+      </h1>
     </div>
   );
 }

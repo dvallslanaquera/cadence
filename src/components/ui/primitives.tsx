@@ -149,3 +149,35 @@ export function EmptyState({ title, hint }: { title: string; hint?: string }) {
     </div>
   );
 }
+
+// A failed read has to say so. Screens that fall back to a spinner when the data is merely absent spin forever once the fetch settles, which reads as a hung page rather than a dead server.
+export function ErrorState({
+  title,
+  hint,
+  retryLabel,
+  onRetry,
+  className,
+}: {
+  title: string;
+  hint?: string;
+  retryLabel?: string;
+  onRetry?: () => void;
+  className?: string;
+}) {
+  return (
+    <div
+      className={cn(
+        "rounded-xl border border-danger/40 bg-danger-soft px-6 py-10 text-center",
+        className,
+      )}
+    >
+      <p className="text-sm font-medium text-danger">{title}</p>
+      {hint ? <p className="mt-1 text-xs text-fg-muted">{hint}</p> : null}
+      {onRetry && retryLabel ? (
+        <Button size="sm" className="mt-3" onClick={onRetry}>
+          {retryLabel}
+        </Button>
+      ) : null}
+    </div>
+  );
+}

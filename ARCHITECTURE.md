@@ -19,7 +19,7 @@ I'll build from the corrected version.
 7. [Frontend structure](#7-frontend-structure)
 8. [The week grid](#8-the-week-grid)
 9. [Backlog tab](#9-backlog-tab)
-10. [Dashboard tab](#10-dashboard-tab)
+10. [Metrics tab](#10-metrics-tab)
 11. [CSV export](#11-csv-export)
 12. [Runaway timer alert](#12-runaway-timer-alert)
 13. [Mobile & PWA](#13-mobile--pwa)
@@ -46,9 +46,9 @@ From your answers:
 | Overlaps | Not allowed. Starting a timer stops the running one; conflicting manual entries rejected |
 | Sync | Installable PWA, online-only writes, running timer refetches on focus and every 30s |
 | Grid click | Click = start a live timer at that minute; drag = completed entry over the dragged range |
-| CSV | export columns, date-range picker defaulting to the visible week |
+| CSV | export columns, date-range picker in Settings defaulting to the current week |
 | Deletes | Projects archive by default; a real delete reassigns its entries and tasks to Others |
-| Dashboard | Configurable daily goal, drawn as a reference line on the day and week charts |
+| Metrics | Configurable daily goal, drawn as a reference line on the day and week charts |
 
 ---
 
@@ -370,7 +370,7 @@ src/
 ├── components/
 │   ├── week/
 │   │   ├── WeekView.tsx        ~130 lines: state + hooks + the component tree wiring
-│   │   ├── WeekViewHeader.tsx  top bar: nav arrows, week label, totals, export, start button
+│   │   ├── WeekViewHeader.tsx  top bar: nav arrows, week label, totals
 │   │   ├── MobileDayStrip.tsx  the 7-button day selector (mobile only)
 │   │   ├── DayHeaderRow.tsx     weekday, date, per-day total, task strip
 │   │   ├── WeekGrid.tsx        flex-1 scroll container: hour gutter + day columns
@@ -379,7 +379,6 @@ src/
 │   │   ├── EntryPopover.tsx    edit form + trash icon (shared: click, drag, edit)
 │   │   ├── NowLine.tsx         red current-time line
 │   │   ├── DayTaskStrip.tsx    the expandable due-tasks menu under each weekday
-│   │   ├── ExportButton.tsx    CSV range export from the header
 │   │   ├── geometry.ts         entry segments per day, per-day totals
 │   │   ├── useZoom.ts          hourHeight + ResizeObserver fit + ctrl-scroll + scroll hold
 │   │   ├── useWeekNavigation.ts  router.push for prev/next/today
@@ -553,8 +552,7 @@ page.tsx
        ├─ useZoom(scrollRef)        hourHeight, pxPerMinute, applyZoom, resetFit
        ├─ useWeekNavigation(...)    goToWeek, goToToday (router.push on ?week=)
        ├─ useKeyboardShortcuts(map) ←/→/t/Esc from a memoised key map
-       ├─ WeekViewHeader            nav arrows, week label, totals, export, start button
-       │    └─ ExportButton
+       ├─ WeekViewHeader            nav arrows, week label, totals
        ├─ MobileDayStrip            7-button day selector (mobile only)
        ├─ DayHeaderRow              weekday, date, per-day total
        │    └─ DayTaskStrip         expandable due-tasks menu
@@ -604,7 +602,7 @@ doesn't grow a row of empty furniture.
 
 ---
 
-## 10. Dashboard tab
+## 10. Metrics tab
 
 Three panels, each with its own date-range control, defaulting as you described:
 
@@ -654,8 +652,8 @@ Dates and times are rendered in the home time zone; `Duration` is `HH:MM:SS` wit
 uncapped hours (seconds are always `00`; the minimum unit
 here is a minute). Multi-day
 entries export as **one row** with different start and end dates; splitting them
-would misrepresent the entry. The range picker sits in the week view
-header and defaults to the visible week. Streamed rather than buffered so a multi-year
+would misrepresent the entry. The range picker sits in Settings
+and defaults to the current week. Streamed rather than buffered so a multi-year
 export doesn't build the whole file in a serverless function's memory.
 
 ---
