@@ -718,10 +718,27 @@ export function useUpdateSettings() {
   return useMutation({
     mutationFn: (input: Partial<Omit<Settings, "lastAlertCheckAt">>) =>
       api.patch<{ settings: Settings }>("/api/settings", input),
-    onSuccess: () => {
-      void client.invalidateQueries();
+    // A refetch from the previous save can still be in flight, and landing after this
+    // one it would put the old theme back for a beat. Cancel it and write through, so
+    // nothing older than this click can win.
+    onMutate: async (input) => {
+      await client.cancelQueries({ queryKey: keys.settings });
+      const previous = client.getQueryData<{ settings: Settings }>(keys.settings);
+      if (previous) {
+        client.setQueryData(keys.settings, { settings: { ...previous.settings, ...input } });
+      }
+      return { previous };
+    },
+    onSuccess: (data) => {
+      client.setQueryData(keys.settings, data);
+      // The response is the whole updated row, so settings needs no refetch. Everything
+      // else does: timezone and the goal hours change how entries and stats render.
+      void client.invalidateQueries({ predicate: (query) => query.queryKey[0] !== "settings" });
       toast.success(t("toast.settingsSaved"));
     },
-    onError: reportError,
+    onError: (error, _input, context) => {
+      if (context?.previous) client.setQueryData(keys.settings, context.previous);
+      reportError(error);
+    },
   });
 }

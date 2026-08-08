@@ -265,10 +265,8 @@ export const DICTIONARY: Record<string, Translations> = {
     ja: "未実行。スケジュールされたワークフローはまだ実行されていません。",
   },
   "about.title": { en: "About", es: "Acerca de", fr: "À propos", it: "Informazioni", ja: "概要" },
-  "about.version": { en: "Cadence, version {version} (build {build})", es: "Cadence, versión {version} (compilación {build})", fr: "Cadence, version {version} (build {build})", it: "Cadence, versione {version} (build {build})", ja: "Cadence、バージョン {version}（ビルド {build}）" },
-  "about.commit": { en: "{commit}", es: "{commit}", fr: "{commit}", it: "{commit}", ja: "{commit}" },
-  "about.built": { en: ", built {date}", es: ", compilado el {date}", fr: ", compilé le {date}", it: ", compilato il {date}", ja: "、ビルド {date}" },
-  "about.noCommit": { en: "no commit recorded", es: "sin commit registrado", fr: "aucun commit enregistré", it: "nessun commit registrato", ja: "コミット記録なし" },
+  "about.version": { en: "Cadence, version {version}", es: "Cadence, versión {version}", fr: "Cadence, version {version}", it: "Cadence, versione {version}", ja: "Cadence、バージョン {version}" },
+  "about.built": { en: "Built {date}", es: "Compilado el {date}", fr: "Compilé le {date}", it: "Compilato il {date}", ja: "{date} ビルド" },
 
   "settings.language": { en: "Language", es: "Language", fr: "Language", it: "Language", ja: "Language" },
 
@@ -318,13 +316,6 @@ export const DICTIONARY: Record<string, Translations> = {
   "projects.deleteReassign": { en: "Delete and reassign", es: "Eliminar y reasignar", fr: "Supprimer et réaffecter", it: "Elimina e riassegna", ja: "削除して再割り当て" },
 
   "theme.title": { en: "Theme", es: "Tema", fr: "Thème", it: "Tema", ja: "テーマ" },
-  "theme.copy": {
-    en: "System follows your OS; the rest force a palette. Picked here, applied at once.",
-    es: "Sistema sigue tu SO; el resto impone una paleta. Elegido aquí, aplicado al instante.",
-    fr: "Système suit votre OS ; les autres imposent une palette. Choisi ici, appliqué aussitôt.",
-    it: "Sistema segue il SO; gli altri impongono una palette. Scelto qui, applicato subito.",
-    ja: "システムはOSに従い、それ以外はパレットを強制します。ここで選ぶと即座に適用されます。",
-  },
   "theme.light": { en: "Light", es: "Claro", fr: "Clair", it: "Chiaro", ja: "ライト" },
   "theme.dark": { en: "Dark", es: "Oscuro", fr: "Sombre", it: "Scuro", ja: "ダーク" },
   "theme.system": { en: "System", es: "Sistema", fr: "Système", it: "Sistema", ja: "システム" },

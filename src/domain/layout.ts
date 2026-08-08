@@ -79,15 +79,19 @@ export interface Block {
 /** Minimum drawn height so a 1-minute entry is still clickable. */
 const MIN_BLOCK_PX = 14;
 
+/** A block shorter than this draws at this height anyway, so a just-started timer reads as a small block instead of a hairline. Purely visual; the stored times are untouched. */
+export const MIN_BLOCK_MINUTES = 15;
+
 /** Positions use the caller's minute scale; the grid passes wall-clock minutes so the hour gutter stays honest across DST. */
 export function segmentToBlock(
   startMinutes: number,
   endMinutes: number,
   pxPerMinute: number,
 ): Block {
+  const floorPx = Math.max(MIN_BLOCK_PX, MIN_BLOCK_MINUTES * pxPerMinute);
   return {
     top: startMinutes * pxPerMinute,
-    height: Math.max(MIN_BLOCK_PX, (endMinutes - startMinutes) * pxPerMinute),
+    height: Math.max(floorPx, (endMinutes - startMinutes) * pxPerMinute),
   };
 }
 

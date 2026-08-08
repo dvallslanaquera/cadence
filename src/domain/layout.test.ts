@@ -5,6 +5,7 @@ import {
   intentFromClick,
   minutesOnDay,
   pixelsToMinutes,
+  segmentToBlock,
   splitAcrossDays,
 } from "./layout";
 import { startOfLocalDay } from "./time";
@@ -273,5 +274,32 @@ describe("intentFromClick", () => {
         expect(slot.startMinutes >= intent.startMinutes).toBe(false);
       }
     }
+  });
+});
+
+describe("segmentToBlock", () => {
+  const PX = 50 / 60; // the default 50px hour
+
+  it("draws a normal block at its real length", () => {
+    expect(segmentToBlock(540, 600, PX)).toEqual({ top: 450, height: 50 });
+  });
+
+  it("floors a sub-minute block so a fresh timer is visible", () => {
+    // 15 min is 12.5px at this zoom, under the 14px clickability floor, so that one wins.
+    expect(segmentToBlock(540, 540, PX).height).toBe(14);
+    expect(segmentToBlock(540, 541, PX).height).toBe(14);
+  });
+
+  it("floors at 15 minutes once zoomed in past where 14px covers it", () => {
+    // 96px/h is the zoom-in limit: 15 min is 24px there, so the minute floor takes over.
+    expect(segmentToBlock(540, 541, 96 / 60).height).toBe(24);
+  });
+
+  it("leaves anything past the floor alone", () => {
+    expect(segmentToBlock(540, 570, PX).height).toBeCloseTo(25);
+  });
+
+  it("never returns a negative height", () => {
+    expect(segmentToBlock(600, 540, PX).height).toBeGreaterThan(0);
   });
 });

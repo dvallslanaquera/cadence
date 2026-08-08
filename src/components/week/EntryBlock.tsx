@@ -35,6 +35,9 @@ interface DragPreview {
   minutes: number;
 }
 
+// Same slop as the grid column: past this the finger is scrolling, not tapping the block.
+const TOUCH_TAP_SLOP_PX = 10;
+
 // Memoised: a week holds dozens, and stable props mean only the changed block re-renders.
 export const EntryBlock = memo(function EntryBlock({
   segment,
@@ -55,6 +58,8 @@ export const EntryBlock = memo(function EntryBlock({
     /** False for a gesture that may only ever be a click. See `beginDrag`. */
     draggable: boolean;
   } | null>(null);
+  // Finger down on the block, until it travels far enough to be a scroll. Touch opens the editor, it never drags.
+  const touchTap = useRef<{ y: number } | null>(null);
 
   // Local drag state so the block tracks the pointer at frame rate, not on PATCH return.
   const [preview, setPreview] = useState<DragPreview | null>(null);
@@ -99,6 +104,12 @@ export const EntryBlock = memo(function EntryBlock({
     mode: "move" | "start" | "end",
   ) {
     if (readOnly) return;
+    // A finger drag scrolls the grid instead of moving the block; capturing it here would make entries dead zones in a full day. Touch edits times in the popover.
+    if (event.pointerType === "touch") {
+      event.stopPropagation();
+      touchTap.current = { y: event.clientY };
+      return;
+    }
     // Running entries have no end so can't move/resize from the bottom, but the press must still register or a click never opens the editor (the only way to trash it).
     const draggable = !running || mode === "start";
     event.stopPropagation();
@@ -108,6 +119,12 @@ export const EntryBlock = memo(function EntryBlock({
   }
 
   function onPointerMove(event: ReactPointerEvent<HTMLElement>) {
+    if (event.pointerType === "touch") {
+      const tap = touchTap.current;
+      if (tap && Math.abs(event.clientY - tap.y) > TOUCH_TAP_SLOP_PX) touchTap.current = null;
+      return;
+    }
+
     const state = drag.current;
     if (!state || !state.draggable) return;
     const snap = event.altKey ? FINE_SNAP_MINUTES : snapMinutes;
@@ -118,7 +135,21 @@ export const EntryBlock = memo(function EntryBlock({
     setPreview(snapped === 0 ? null : { mode: state.mode, minutes: snapped });
   }
 
+  // Scroll takeover, or any other aborted gesture: drop the preview, never write it.
+  function cancelDrag() {
+    drag.current = null;
+    touchTap.current = null;
+    setPreview(null);
+  }
+
   function endDrag(event: ReactPointerEvent<HTMLElement>) {
+    if (event.pointerType === "touch") {
+      const tap = touchTap.current;
+      touchTap.current = null;
+      if (tap && Math.abs(event.clientY - tap.y) <= TOUCH_TAP_SLOP_PX) onSelect(entry.id);
+      return;
+    }
+
     const state = drag.current;
     drag.current = null;
     if (!state) {
@@ -178,7 +209,7 @@ export const EntryBlock = memo(function EntryBlock({
             onPointerDown={(event) => beginDrag(event, "move")}
             onPointerMove={onPointerMove}
             onPointerUp={endDrag}
-            onPointerCancel={endDrag}
+            onPointerCancel={cancelDrag}
             onKeyDown={(event) => {
               if (event.key === "Enter" || event.key === " ") {
                 event.preventDefault();
@@ -229,7 +260,7 @@ export const EntryBlock = memo(function EntryBlock({
                 onPointerDown={(event) => beginDrag(event, "start")}
                 onPointerMove={onPointerMove}
                 onPointerUp={endDrag}
-                onPointerCancel={endDrag}
+                onPointerCancel={cancelDrag}
                 className="absolute inset-x-0 top-0 h-1.5 cursor-ns-resize opacity-0 group-hover:opacity-100"
                 style={{ background: withAlpha(color, 0.9) }}
               />
@@ -239,7 +270,7 @@ export const EntryBlock = memo(function EntryBlock({
                 onPointerDown={(event) => beginDrag(event, "end")}
                 onPointerMove={onPointerMove}
                 onPointerUp={endDrag}
-                onPointerCancel={endDrag}
+                onPointerCancel={cancelDrag}
                 className="absolute inset-x-0 bottom-0 h-1.5 cursor-ns-resize opacity-0 group-hover:opacity-100"
                 style={{ background: withAlpha(color, 0.9) }}
               />

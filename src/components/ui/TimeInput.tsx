@@ -50,7 +50,8 @@ export function TimeInput({
   return (
     <Input
       type="text"
-      inputMode="numeric"
+      // Full keyboard, not the numeric pad: phone keypads have no colon key, so "09:30" could only be typed as four bare digits. maskClockInput still accepts those.
+      inputMode="text"
       autoComplete="off"
       spellCheck={false}
       maxLength={5}

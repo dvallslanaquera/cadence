@@ -12,7 +12,7 @@ import {
 } from "@/lib/queries";
 import { api } from "@/lib/api";
 import { nextProjectColor, THEMES } from "@/lib/constants";
-import { APP_BUILD, APP_BUILD_DATE, APP_COMMIT, APP_VERSION } from "@/lib/version";
+import { APP_BUILD_DATE, APP_VERSION } from "@/lib/version";
 import { cn } from "@/lib/utils";
 import { ColorSwatchPicker } from "@/components/ui/ColorSwatchPicker";
 import { ExportSection } from "./ExportSection";
@@ -74,21 +74,16 @@ export function SettingsView() {
     setFontSize(settings.fontSize);
   }, [settings]);
 
+  // The mutation writes the new value into the settings cache on the click, so ThemeSync
+  // and FontSizeSync repaint straight away. Touching <html> here too would make two
+  // writers for one attribute, which is how the palette used to flicker back on a second change.
   function pickTheme(id: string) {
     setTheme(id);
-    // Apply immediately so the recolour is instant; ThemeSync reconciles after the refetch.
-    const el = document.documentElement;
-    if (id === "system") delete el.dataset.theme;
-    else el.dataset.theme = id;
     updateSettings.mutate({ theme: id });
   }
 
   function pickFontSize(id: string) {
     setFontSize(id);
-    // Apply immediately so the zoom is instant; FontSizeSync reconciles after the refetch.
-    const el = document.documentElement;
-    if (id === "default") delete el.dataset.fontsize;
-    else el.dataset.fontsize = id;
     updateSettings.mutate({ fontSize: id });
   }
 
@@ -123,22 +118,21 @@ export function SettingsView() {
       <FontSizeSection fontSize={fontSize} onPick={pickFontSize} />
 
       <section className="rounded-xl border border-border bg-surface p-4">
-        <h2 className="mb-1 text-sm font-semibold">{t("settings.language")}</h2>
-        <Field label={t("settings.language")}>
-          <Select
-            value={language}
-            onChange={(event) => {
-              setLanguage(event.target.value);
-              updateSettings.mutate({ language: event.target.value });
-            }}
-          >
-            {LANGUAGES.map((lang) => (
-              <option key={lang.id} value={lang.id}>
-                {lang.label}
-              </option>
-            ))}
-          </Select>
-        </Field>
+        <h2 className="mb-3 text-sm font-semibold">{t("settings.language")}</h2>
+        <Select
+          aria-label={t("settings.language")}
+          value={language}
+          onChange={(event) => {
+            setLanguage(event.target.value);
+            updateSettings.mutate({ language: event.target.value });
+          }}
+        >
+          {LANGUAGES.map((lang) => (
+            <option key={lang.id} value={lang.id}>
+              {lang.label}
+            </option>
+          ))}
+        </Select>
       </section>
 
       <section className="rounded-xl border border-border bg-surface p-4">
@@ -251,12 +245,13 @@ function AboutSection() {
     <section className="rounded-xl border border-border bg-surface p-4">
       <h2 className="mb-1 text-sm font-semibold">{t("about.title")}</h2>
       <p className="text-xs font-medium text-fg-muted">
-        {t("about.version", { version: APP_VERSION, build: APP_BUILD })}
+        {t("about.version", { version: APP_VERSION })}
       </p>
-      <p className="mt-0.5 text-xs text-fg-subtle">
-        {APP_COMMIT || t("about.noCommit")}
-        {APP_BUILD_DATE ? t("about.built", { date: APP_BUILD_DATE }) : ""}
-      </p>
+      {APP_BUILD_DATE ? (
+        <p className="mt-0.5 text-xs text-fg-subtle">
+          {t("about.built", { date: APP_BUILD_DATE })}
+        </p>
+      ) : null}
     </section>
   );
 }
@@ -466,8 +461,7 @@ function ThemeSection({
 
   return (
     <section className="rounded-xl border border-border bg-surface p-4">
-      <h2 className="mb-1 text-sm font-semibold">{t("theme.title")}</h2>
-      <p className="mb-3 text-xs text-fg-muted">{t("theme.copy")}</p>
+      <h2 className="mb-3 text-sm font-semibold">{t("theme.title")}</h2>
 
       <div className="space-y-3">
         <button

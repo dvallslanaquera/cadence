@@ -33,10 +33,11 @@ export function segmentsByDay(
 
     for (const segment of splitAcrossDays(start, end, tz)) {
       const topMinutes = wallClockMinutes(segment.startsAt, tz);
-      // A segment ending at next midnight reads as 00:00; place it at the bottom of this day, not the top.
       const rawBottom = wallClockMinutes(segment.endsAt, tz);
-      const bottomMinutes =
-        segment.continuesAfter || rawBottom <= topMinutes ? GRID_MINUTES : rawBottom;
+      // A segment ending at next midnight reads as 00:00; place it at the bottom of this day, not the top. Only 00:00 means that: a bottom that merely ties the top is a sub-minute entry (a timer in its first seconds), which used to get stretched to midnight.
+      const endsAtMidnight = segment.continuesAfter || rawBottom === 0;
+      // max() keeps the height non-negative when a fall-back DST hour repeats and the end reads earlier than the start.
+      const bottomMinutes = endsAtMidnight ? GRID_MINUTES : Math.max(rawBottom, topMinutes);
 
       const list = byDay.get(segment.dayKey) ?? [];
       list.push({
