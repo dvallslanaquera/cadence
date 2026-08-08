@@ -10,8 +10,14 @@ import {
 import {
   formatWeekdayShort,
   instantFromLocalParts,
+  shiftDays,
+  shiftMonths,
   shiftWeeks,
+  shiftYears,
+  startOfLocalDay,
+  startOfLocalMonth,
   startOfLocalWeek,
+  startOfLocalYear,
 } from "@/domain/time";
 import { ErrorState, Spinner } from "@/components/ui/primitives";
 import { useT } from "@/lib/i18n-client";
@@ -22,12 +28,27 @@ import { ProjectDonut } from "./ProjectDonut";
 import { RangePresets, type RangePreset } from "./RangePresets";
 import { SummaryStrip } from "./SummaryStrip";
 
-const RANGE_WEEKS: Record<RangePreset, number> = {
-  week: 1,
-  month: 4,
-  quarter: 13,
-  year: 52,
-};
+// Half-open [start, end). Calendar presets run to the end of the current week/month/year, matching how "this week" already shows days that haven't happened yet.
+function rangeFor(preset: RangePreset, now: Date, tz: string): { start: Date; end: Date } {
+  switch (preset) {
+    case "week": {
+      const start = startOfLocalWeek(now, tz);
+      return { start, end: shiftWeeks(start, tz, 1) };
+    }
+    case "month": {
+      const start = startOfLocalMonth(now, tz);
+      return { start, end: shiftMonths(start, tz, 1) };
+    }
+    case "last30": {
+      const today = startOfLocalDay(now, tz);
+      return { start: shiftDays(today, tz, -29), end: shiftDays(today, tz, 1) };
+    }
+    case "year": {
+      const start = startOfLocalYear(now, tz);
+      return { start, end: shiftYears(start, tz, 1) };
+    }
+  }
+}
 
 export function DashboardView() {
   const {
@@ -52,11 +73,8 @@ export function DashboardView() {
 
   // Wider window for the donut and summary strip.
   const { rangeStart, rangeEnd } = useMemo(() => {
-    const thisWeek = startOfLocalWeek(new Date(), tz);
-    return {
-      rangeStart: shiftWeeks(thisWeek, tz, -(RANGE_WEEKS[range] - 1)),
-      rangeEnd: shiftWeeks(thisWeek, tz, 1),
-    };
+    const { start, end } = rangeFor(range, new Date(), tz);
+    return { rangeStart: start, rangeEnd: end };
   }, [tz, range]);
 
   const daily = useDailyStats(weekStart, weekEnd);
@@ -96,12 +114,7 @@ export function DashboardView() {
         <RangePresets value={range} onChange={setRange} />
       </div>
 
-      <SummaryStrip
-        summary={rangeSummary.data?.summary}
-        topProject={projects.data?.[0] ?? null}
-        goalHours={goalHours}
-        rangeWeeks={RANGE_WEEKS[range]}
-      />
+      <SummaryStrip summary={rangeSummary.data?.summary} />
 
       <div className="grid gap-4 lg:grid-cols-2">
         {daily.isLoading ? (
@@ -137,8 +150,6 @@ export function DashboardView() {
           onWeekCountChange={setWeekCount}
         />
       )}
-
-      <p className="text-xs text-fg-subtle">{t("dash.footer")}</p>
     </div>
   );
 }

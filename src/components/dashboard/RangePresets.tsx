@@ -3,9 +3,9 @@
 import { cn } from "@/lib/utils";
 import { useT } from "@/lib/i18n-client";
 
-export type RangePreset = "week" | "month" | "quarter" | "year";
+export type RangePreset = "week" | "month" | "last30" | "year";
 
-export const RANGE_PRESETS: RangePreset[] = ["week", "month", "quarter", "year"];
+export const RANGE_PRESETS: RangePreset[] = ["week", "month", "last30", "year"];
 
 export function RangePresets({
   value,

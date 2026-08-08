@@ -15,7 +15,12 @@ import {
   parseClockToMinutes,
   roundToMinute,
   shiftDateKey,
+  shiftDays,
+  shiftMonths,
+  shiftYears,
   startOfLocalDay,
+  startOfLocalMonth,
+  startOfLocalYear,
   weekDays,
   weekKey,
   weekStartFromKey,
@@ -65,6 +70,31 @@ describe("local day boundaries", () => {
   it("is 25 hours on the fall-back day", () => {
     const day = startOfLocalDay(new Date("2026-10-25T12:00:00Z"), TZ);
     expect(localDayLengthMinutes(day, TZ)).toBe(1500);
+  });
+});
+
+// The metrics range presets are built out of these.
+describe("month and year boundaries", () => {
+  it("finds the 1st at local midnight", () => {
+    const start = startOfLocalMonth(new Date("2026-08-08T10:00:00Z"), TZ);
+    expect(start.toISOString()).toBe("2026-07-31T22:00:00.000Z");
+    expect(shiftMonths(start, TZ, 1).toISOString()).toBe("2026-08-31T22:00:00.000Z");
+  });
+
+  it("finds 1 January at local midnight, an hour off from the summer offset", () => {
+    const start = startOfLocalYear(new Date("2026-08-08T10:00:00Z"), TZ);
+    expect(start.toISOString()).toBe("2025-12-31T23:00:00.000Z");
+    expect(shiftYears(start, TZ, 1).toISOString()).toBe("2026-12-31T23:00:00.000Z");
+  });
+
+  it("shifts by calendar days, so the fall-back day spans 25 hours", () => {
+    const day = startOfLocalDay(new Date("2026-10-25T12:00:00Z"), TZ);
+    expect(shiftDays(day, TZ, 1).toISOString()).toBe("2026-10-25T23:00:00.000Z");
+  });
+
+  it("walks a 30-day window back across the DST change", () => {
+    const today = startOfLocalDay(new Date("2026-11-10T12:00:00Z"), TZ);
+    expect(shiftDays(today, TZ, -29).toISOString()).toBe("2026-10-11T22:00:00.000Z");
   });
 });
 

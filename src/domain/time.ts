@@ -6,11 +6,15 @@
 import { TZDate } from "@date-fns/tz";
 import {
   addDays,
+  addMonths,
   addWeeks,
+  addYears,
   getISOWeek,
   getISOWeekYear,
   startOfDay,
   startOfISOWeek,
+  startOfMonth,
+  startOfYear,
 } from "date-fns";
 
 export const MS_PER_MINUTE = 60_000;
@@ -142,6 +146,29 @@ export function weekDays(instant: Date, tz: string): Date[] {
 
 export function shiftWeeks(instant: Date, tz: string, delta: number): Date {
   return new Date(addWeeks(new TZDate(instant, tz), delta).getTime());
+}
+
+/** Calendar days, so a DST day still counts as one day rather than 24h. */
+export function shiftDays(instant: Date, tz: string, delta: number): Date {
+  return new Date(addDays(new TZDate(instant, tz), delta).getTime());
+}
+
+/** The instant of local midnight on the 1st of the month `instant` falls in. */
+export function startOfLocalMonth(instant: Date, tz: string): Date {
+  return new Date(startOfMonth(new TZDate(instant, tz)).getTime());
+}
+
+export function shiftMonths(instant: Date, tz: string, delta: number): Date {
+  return new Date(addMonths(new TZDate(instant, tz), delta).getTime());
+}
+
+/** The instant of local midnight on 1 January of the year `instant` falls in. */
+export function startOfLocalYear(instant: Date, tz: string): Date {
+  return new Date(startOfYear(new TZDate(instant, tz)).getTime());
+}
+
+export function shiftYears(instant: Date, tz: string, delta: number): Date {
+  return new Date(addYears(new TZDate(instant, tz), delta).getTime());
 }
 
 /** Shift an ISO string by a fixed number of milliseconds, returning an ISO string. */
